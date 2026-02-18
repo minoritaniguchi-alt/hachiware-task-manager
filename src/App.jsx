@@ -155,7 +155,7 @@ function Toast({ msg, onDone }) {
 }
 
 // ─── DashboardCard ───────────────────────────────────────
-function DashboardCard({ category, items, onAdd, onDelete }) {
+function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
   const [open, setOpen] = useState(true)
   const [input, setInput] = useState('')
   const handleAdd = () => { const v = input.trim(); if (!v) return; onAdd(category.id, v); setInput('') }
@@ -178,9 +178,42 @@ function DashboardCard({ category, items, onAdd, onDelete }) {
             </div>
             {items.length === 0 && <p className="text-xs text-gray-400 text-center py-1">項目なし</p>}
             {items.map(item => (
-              <div key={item.id} className="flex items-center gap-2 bg-white/70 rounded-lg px-3 py-2 text-sm text-gray-700 group">
-                <span className="flex-1">{item.text}</span>
-                <button onClick={() => onDelete(category.id, item.id)} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-400 transition-all"><Trash2 size={13} /></button>
+              <div key={item.id}
+                className="flex items-start gap-2 bg-white/70 hover:bg-white/95 rounded-lg px-3 py-2 text-sm text-gray-700 group transition-colors cursor-pointer"
+                onClick={() => onEdit(item, category.id)}>
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm text-gray-700 leading-snug">{item.text}</span>
+                  {/* 関連リンクのプレビュー */}
+                  {item.links?.length > 0 && (
+                    <div className="flex flex-col gap-0.5 mt-1">
+                      {item.links.map(link => (
+                        <a key={link.id} href={link.url} target="_blank" rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 text-xs text-[#5AAAC5] hover:underline w-fit">
+                          <LinkSvgIcon size={10} />{link.title || link.url}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {/* 進捗メモのプレビュー（1行） */}
+                  {item.memo && (
+                    <p className="text-xs text-gray-400 mt-0.5 truncate">{item.memo}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
+                  <button
+                    onClick={e => { e.stopPropagation(); onEdit(item, category.id) }}
+                    className="p-1 text-gray-400 hover:text-[#7AAABB] rounded hover:bg-[#A2C2D0]/15 transition-colors"
+                    title="編集">
+                    <Pencil size={11} />
+                  </button>
+                  <button
+                    onClick={e => { e.stopPropagation(); onDelete(category.id, item.id) }}
+                    className="p-1 text-gray-400 hover:text-red-400 rounded hover:bg-red-50 transition-colors"
+                    title="削除">
+                    <Trash2 size={12} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -301,6 +334,82 @@ function LinkInputRow({ onAdd }) {
       <button onClick={handleAdd} className="p-1.5 rounded-lg bg-[#A2C2D0]/20 hover:bg-[#A2C2D0]/40 text-[#7AAABB] transition-colors flex-shrink-0">
         <Plus size={14} />
       </button>
+    </div>
+  )
+}
+
+// ─── DashboardItemEditModal ───────────────────────────────
+function DashboardItemEditModal({ item, onSave, onClose }) {
+  const [title, setTitle]     = useState(item.text || '')
+  const [details, setDetails] = useState(item.details || '')
+  const [memo, setMemo]       = useState(item.memo || '')
+  const [links, setLinks]     = useState(item.links || [])
+
+  const handleSave = () => {
+    if (!title.trim()) return
+    onSave({ title: title.trim(), details: details.trim(), memo: memo.trim(), links })
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/25 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="relative bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-[#A2C2D0]/20 w-full sm:max-w-lg max-h-[92vh] overflow-y-auto flex flex-col"
+        style={{ background: 'linear-gradient(160deg, rgba(162,194,208,0.06) 0%, #ffffff 40%)' }}>
+
+        <div className="sticky top-0 bg-white/95 backdrop-blur-sm flex items-center justify-between px-6 py-4 border-b border-[#F0EBE3] z-10">
+          <h2 className="font-semibold text-gray-800 text-sm">詳細編集</h2>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="p-6 flex flex-col gap-5 flex-1">
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">タイトル</label>
+            <input type="text" value={title} onChange={e => setTitle(e.target.value)}
+              className="w-full text-sm font-medium px-4 py-2.5 rounded-xl border-2 border-[#A2C2D0]/25 bg-white focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/40 focus:border-[#A2C2D0]/50 transition-all" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">詳細</label>
+            <textarea value={details} onChange={e => setDetails(e.target.value)} rows={3} placeholder="タスクの詳細"
+              className="w-full text-sm px-4 py-2.5 rounded-xl border border-[#A2C2D0]/20 bg-white focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/30 placeholder-gray-400 resize-none" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">進捗メモ</label>
+            <textarea value={memo} onChange={e => setMemo(e.target.value)} rows={3} placeholder="備考・進捗状況"
+              className="w-full text-sm px-4 py-2.5 rounded-xl border border-[#A2C2D0]/20 bg-white focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/30 placeholder-gray-400 resize-none" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">関連リンク</label>
+            <div className="flex flex-col gap-1.5 mb-2">
+              {links.map(link => (
+                <div key={link.id} className="flex items-center gap-2 px-3 py-2 bg-[#F8F4F0] rounded-lg border border-[#A2C2D0]/15 group">
+                  <LinkSvgIcon size={12} className="text-[#5AAAC5] flex-shrink-0" />
+                  <a href={link.url} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-[#5AAAC5] hover:underline flex-1 truncate">{link.title || link.url}</a>
+                  <button onClick={() => setLinks(prev => prev.filter(l => l.id !== link.id))}
+                    className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-400 transition-all flex-shrink-0">
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <LinkInputRow onAdd={link => setLinks(prev => [...prev, link])} />
+          </div>
+        </div>
+
+        <div className="sticky bottom-0 bg-white/95 backdrop-blur-sm px-6 py-4 border-t border-[#F0EBE3] flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors">
+            キャンセル
+          </button>
+          <button onClick={handleSave} disabled={!title.trim()}
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium bg-[#A2C2D0] text-white hover:bg-[#7AAABB] disabled:opacity-40 transition-colors active:scale-95">
+            保存
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -548,7 +657,8 @@ export default function App() {
   const [archiveOpen, setArchiveOpen]     = useState(false)
   const [toast, setToast]                 = useState(null)
   const [filter, setFilter]               = useState('all')
-  const [editingTask, setEditingTask]     = useState(null)
+  const [editingTask, setEditingTask]             = useState(null)
+  const [editingDashItem, setEditingDashItem]     = useState(null) // { item, catId }
 
   useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)) }, [tasks])
   useEffect(() => { localStorage.setItem(DASHBOARD_KEY, JSON.stringify(dashboard)) }, [dashboard])
@@ -589,10 +699,20 @@ export default function App() {
   }
 
   const deleteTask = (id) => setTasks(prev => prev.filter(t => t.id !== id))
+
   const addDashboardItem = (catId, text) =>
-    setDashboard(prev => ({ ...prev, [catId]: [...(prev[catId] || []), { id: Date.now().toString(), text }] }))
+    setDashboard(prev => ({ ...prev, [catId]: [...(prev[catId] || []), { id: Date.now().toString(), text, details: '', memo: '', links: [] }] }))
   const deleteDashboardItem = (catId, itemId) =>
     setDashboard(prev => ({ ...prev, [catId]: (prev[catId] || []).filter(i => i.id !== itemId) }))
+  const updateDashboardItem = (catId, itemId, fields) => {
+    setDashboard(prev => ({
+      ...prev,
+      [catId]: (prev[catId] || []).map(item =>
+        item.id !== itemId ? item : { ...item, text: fields.title, details: fields.details, memo: fields.memo, links: fields.links }
+      ),
+    }))
+    setToast(TOAST_MSGS.edit)
+  }
 
   const activeTasks    = tasks.filter(t => t.status !== 'done')
   const doneTasks      = tasks.filter(t => t.status === 'done').sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))
@@ -638,7 +758,8 @@ export default function App() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-[fade-in_0.3s_ease-out]">
               {DASHBOARD_CATEGORIES.map(cat => (
                 <DashboardCard key={cat.id} category={cat} items={dashboard[cat.id] || []}
-                  onAdd={addDashboardItem} onDelete={deleteDashboardItem} />
+                  onAdd={addDashboardItem} onDelete={deleteDashboardItem}
+                  onEdit={(item, catId) => setEditingDashItem({ item, catId })} />
               ))}
             </div>
           )}
@@ -707,12 +828,21 @@ export default function App() {
         )}
       </main>
 
-      {/* 編集モーダル */}
+      {/* タスク編集モーダル */}
       {editingTask && (
         <TaskEditModal
           task={editingTask}
           onSave={editTask}
           onClose={() => setEditingTask(null)}
+        />
+      )}
+
+      {/* ダッシュボードアイテム編集モーダル */}
+      {editingDashItem && (
+        <DashboardItemEditModal
+          item={editingDashItem.item}
+          onSave={fields => updateDashboardItem(editingDashItem.catId, editingDashItem.item.id, fields)}
+          onClose={() => setEditingDashItem(null)}
         />
       )}
 
