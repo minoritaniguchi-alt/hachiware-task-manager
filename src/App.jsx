@@ -47,7 +47,7 @@ const TOAST_MSGS = { add: 'タスクを追加しました', done: '完了しま�
  */
 
 // ─── 猫耳 × 2 ────────────────────────────────────────────
-// 直線ベースの三角形 + 先端だけ微小な丸み（Q命令）で猫耳シルエット
+// 低めの高さ + 幅広のQベジエで「ふっくら丸みのある猫耳」を表現
 function CatEarsDecor({ color, position }) {
   const posClass = {
     'top-left':   'absolute top-1 left-3',
@@ -56,11 +56,10 @@ function CatEarsDecor({ color, position }) {
   }[position] ?? ''
   return (
     <div className={`pointer-events-none ${posClass}`} aria-hidden="true">
-      <svg width="48" height="18" viewBox="0 0 48 18" fill="none">
-        {/* 左耳: 直線の斜辺 + 先端だけ微小丸み */}
-        <path d="M0 18 L8 2 Q10 0 12 2 L20 18 Z" fill={color} />
-        {/* 右耳: 直線の斜辺 + 先端だけ微小丸み */}
-        <path d="M28 18 L36 2 Q38 0 40 2 L48 18 Z" fill={color} />
+      {/* 左耳: M0 14 L4 6 Q12 -2 20 6 L24 14 Z  右耳: +30offset */}
+      <svg width="54" height="14" viewBox="0 0 54 14" fill="none">
+        <path d="M0 14 L4 6 Q12 -2 20 6 L24 14 Z" fill={color} />
+        <path d="M30 14 L34 6 Q42 -2 50 6 L54 14 Z" fill={color} />
       </svg>
     </div>
   )
