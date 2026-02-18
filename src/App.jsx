@@ -158,31 +158,64 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
   const [open, setOpen] = useState(true)
   const [input, setInput] = useState('')
   const handleAdd = () => { const v = input.trim(); if (!v) return; onAdd(category.id, v); setInput('') }
+
+  // ハチワレ模様：左右コーナーにテーマ色、中央クリームのV字抜き
+  const hachiwariStyle = {
+    backgroundImage: [
+      `linear-gradient(to bottom right, ${category.color} 0%, ${category.color} 45%, transparent 72%)`,
+      `linear-gradient(to bottom left,  ${category.color} 0%, ${category.color} 45%, transparent 72%)`,
+    ].join(', '),
+    backgroundSize: '52% 100%, 52% 100%',
+    backgroundPosition: 'left top, right top',
+    backgroundRepeat: 'no-repeat, no-repeat',
+    backgroundColor: '#FAF7F2',
+  }
+
   return (
     <div className="relative pt-5">
+      {/* 耳はカードの外側に絶対配置 → カードのoverflow-hiddenに影響しない */}
       <CatEarsDecor position={category.earPosition} color={category.color} />
-      <div className={`rounded-2xl border-2 ${category.borderColor} bg-gradient-to-br ${category.bgColor} transition-all duration-300`}>
-        <button onClick={() => setOpen(v => !v)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/20 transition-colors">
-          <div className="flex items-center gap-2 font-semibold text-gray-700 text-sm">
-            <span className="text-base">{category.emoji}</span>{category.label}
-            <span className="text-xs font-normal bg-white/60 px-2 py-0.5 rounded-full text-gray-500">{items.length}件</span>
+
+      <div className={`rounded-3xl border-2 ${category.borderColor} overflow-hidden`}>
+        {/* ハチワレ模様ヘッダー */}
+        <button onClick={() => setOpen(v => !v)} className="w-full">
+          <div className="flex items-end justify-between px-4 pb-3 pt-3" style={{ ...hachiwariStyle, minHeight: 62 }}>
+            <div className="flex items-center gap-2 font-semibold text-gray-700 text-sm">
+              <span className="text-base">{category.emoji}</span>
+              {category.label}
+              <span className="text-xs font-normal bg-white/70 px-2 py-0.5 rounded-full text-gray-500">
+                {items.length}件
+              </span>
+            </div>
+            {open
+              ? <ChevronUp   size={15} className="text-gray-500 flex-shrink-0" />
+              : <ChevronDown size={15} className="text-gray-500 flex-shrink-0" />
+            }
           </div>
-          {open ? <ChevronUp size={15} className="text-gray-400" /> : <ChevronDown size={15} className="text-gray-400" />}
         </button>
+
+        {/* コンテンツ（白背景・視認性優先） */}
         {open && (
-          <div className="px-4 pb-4 flex flex-col gap-2">
+          <div className="bg-white px-4 pt-3 pb-4 flex flex-col gap-2">
             <div className="flex gap-2">
-              <input type="text" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAdd()} placeholder="追加する..." className="flex-1 text-sm px-3 py-1.5 rounded-lg border border-white/80 bg-white/70 focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/40 placeholder-gray-400" />
-              <button onClick={handleAdd} className="p-1.5 rounded-lg bg-white/80 hover:bg-white text-[#7AAABB] transition-colors"><Plus size={16} /></button>
+              <input
+                type="text" value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                placeholder="追加する..."
+                className="flex-1 text-sm px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/40 placeholder-gray-400"
+              />
+              <button onClick={handleAdd} className="p-1.5 rounded-lg bg-gray-100 hover:bg-[#A2C2D0]/20 text-[#7AAABB] transition-colors">
+                <Plus size={16} />
+              </button>
             </div>
             {items.length === 0 && <p className="text-xs text-gray-400 text-center py-1">項目なし</p>}
             {items.map(item => (
               <div key={item.id}
-                className="flex items-start gap-2 bg-white/70 hover:bg-white/95 rounded-lg px-3 py-2 text-sm text-gray-700 group transition-colors cursor-pointer"
+                className="flex items-start gap-2 bg-gray-50 hover:bg-[#FAF7F2] rounded-xl px-3 py-2 text-sm text-gray-700 group transition-colors cursor-pointer"
                 onClick={() => onEdit(item, category.id)}>
                 <div className="flex-1 min-w-0">
                   <span className="text-sm text-gray-700 leading-snug">{item.text}</span>
-                  {/* 関連リンクのプレビュー */}
                   {item.links?.length > 0 && (
                     <div className="flex flex-col gap-0.5 mt-1">
                       {item.links.map(link => (
@@ -194,7 +227,6 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
                       ))}
                     </div>
                   )}
-                  {/* 進捗メモのプレビュー（1行） */}
                   {item.memo && (
                     <p className="text-xs text-gray-400 mt-0.5 truncate">{item.memo}</p>
                   )}
