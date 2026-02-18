@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2,
-  Clock, PauseCircle, Eye, Timer, Archive, Sparkles,
-  RotateCcw, GripVertical, Coffee
+  Clock, PauseCircle, Eye, Timer, Archive, RotateCcw
 } from 'lucide-react'
+import catLogo from './assets/cat_Image.png'
 import './index.css'
 
 // ─── 定数 ───────────────────────────────────────────────
@@ -27,34 +27,65 @@ const PRIORITY_CONFIG = {
 }
 
 const DASHBOARD_CATEGORIES = [
-  { id: 'routine',  label: 'ルーチン業務', emoji: '🔄', borderColor: 'border-[#A2C2D0]', bgColor: 'from-[#A2C2D0]/10 to-[#A2C2D0]/5' },
-  { id: 'adhoc',   label: '臨時対応',     emoji: '⚡', borderColor: 'border-[#F2CBC9]', bgColor: 'from-[#F2CBC9]/10 to-[#F2CBC9]/5' },
-  { id: 'schedule', label: '予定',         emoji: '📅', borderColor: 'border-[#C8D8A8]', bgColor: 'from-[#C8D8A8]/20 to-[#C8D8A8]/5' },
+  { id: 'routine',  label: 'ルーチン業務', emoji: '🍜', borderColor: 'border-[#A2C2D0]', bgColor: 'from-[#A2C2D0]/10 to-[#A2C2D0]/5' },
+  { id: 'adhoc',   label: '臨時対応',     emoji: '📷', borderColor: 'border-[#F2CBC9]', bgColor: 'from-[#F2CBC9]/10 to-[#F2CBC9]/5' },
+  { id: 'schedule', label: '予定',         emoji: '🎸', borderColor: 'border-[#C8D8A8]', bgColor: 'from-[#C8D8A8]/20 to-[#C8D8A8]/5' },
 ]
 
-const HACHIWARE_MSGS = {
-  done: ['えらい！💙', 'すごい！🎉', 'やったね✨', '完璧！🐱', 'えっらーい！💙'],
-  add:  ['がんばろ🐱', 'いってみよう✨', 'ファイト💪'],
+const TOAST_MSGS = {
+  add:     'タスクを追加しました',
+  done:    '完了しました ✓',
+  restore: 'リストに戻しました',
 }
 
-function randomMsg(type) {
-  const arr = HACHIWARE_MSGS[type]
-  return arr[Math.floor(Math.random() * arr.length)]
+// ─── 耳モチーフ：チェックボックス ────────────────────────
+// 未完了: アウトライン三角×2（くすみブルー）
+// 完了:   塗りつぶし三角×2（グリーン）
+function EarCheckbox({ isDone, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="mt-1 flex-shrink-0 transition-transform duration-150 hover:scale-110 active:scale-95"
+      title={isDone ? 'リストに戻す' : '完了にする'}
+    >
+      <svg width="22" height="15" viewBox="0 0 30 16" fill="none">
+        {isDone ? (
+          <>
+            <path d="M1 15 L8 1 L15 15 Z"  fill="#4A9E68" />
+            <path d="M15 15 L22 1 L29 15 Z" fill="#4A9E68" />
+          </>
+        ) : (
+          <>
+            <path d="M1 15 L8 1 L15 15"  stroke="#A2C2D0" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+            <path d="M15 15 L22 1 L29 15" stroke="#A2C2D0" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+          </>
+        )}
+      </svg>
+    </button>
+  )
+}
+
+// ─── 耳モチーフ：装飾パーツ ──────────────────────────────
+function EarDecor({ size = 14, color = '#A2C2D0', opacity = 0.45 }) {
+  return (
+    <svg
+      width={size * 2.3}
+      height={size}
+      viewBox="0 0 30 16"
+      fill="none"
+      style={{ opacity }}
+      aria-hidden="true"
+    >
+      <path d="M1 15 L8 1 L15 15"  stroke={color} strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />
+      <path d="M15 15 L22 1 L29 15" stroke={color} strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  )
 }
 
 // ─── StatusBadge ─────────────────────────────────────────
-function StatusBadge({ status, onChange, readonly = false }) {
+function StatusBadge({ status, onChange }) {
   const [open, setOpen] = useState(false)
   const cfg = STATUS_CONFIG[status]
-
-  if (readonly) {
-    return (
-      <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border ${cfg.color}`}>
-        <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-        {cfg.label}
-      </span>
-    )
-  }
 
   return (
     <div className="relative">
@@ -96,8 +127,8 @@ function Toast({ msg, onDone }) {
 
   return (
     <div className="fixed bottom-6 right-6 z-50 animate-[fade-in_0.3s_ease-out]">
-      <div className="bg-white border border-[#A2C2D0]/30 shadow-[0_4px_20px_rgba(162,194,208,0.20)] rounded-2xl px-5 py-3 flex items-center gap-2.5 text-sm font-medium text-gray-700">
-        <span className="text-xl">🐱</span>
+      <div className="bg-white border border-[#A2C2D0]/30 shadow-[0_4px_20px_rgba(162,194,208,0.20)] rounded-2xl px-5 py-3 flex items-center gap-3 text-sm font-medium text-gray-700">
+        <EarDecor size={12} opacity={0.8} />
         {msg}
       </div>
     </div>
@@ -123,13 +154,15 @@ function DashboardCard({ category, items, onAdd, onDelete }) {
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/20 transition-colors"
       >
         <div className="flex items-center gap-2 font-semibold text-gray-700 text-sm">
-          <span className="text-lg">{category.emoji}</span>
+          <span className="text-base">{category.emoji}</span>
           {category.label}
           <span className="text-xs font-normal bg-white/60 px-2 py-0.5 rounded-full text-gray-500">
             {items.length}件
           </span>
         </div>
-        {open ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+        {open
+          ? <ChevronUp size={15} className="text-gray-400" />
+          : <ChevronDown size={15} className="text-gray-400" />}
       </button>
 
       {open && (
@@ -143,15 +176,22 @@ function DashboardCard({ category, items, onAdd, onDelete }) {
               placeholder="追加する..."
               className="flex-1 text-sm px-3 py-1.5 rounded-lg border border-white/80 bg-white/70 focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/40 placeholder-gray-400"
             />
-            <button onClick={handleAdd} className="p-1.5 rounded-lg bg-white/80 hover:bg-white text-[#7AAABB] transition-colors">
+            <button
+              onClick={handleAdd}
+              className="p-1.5 rounded-lg bg-white/80 hover:bg-white text-[#7AAABB] transition-colors"
+            >
               <Plus size={16} />
             </button>
           </div>
+
           {items.length === 0 && (
-            <p className="text-xs text-gray-400 text-center py-1">まだ何もないよ🐱</p>
+            <p className="text-xs text-gray-400 text-center py-1">項目なし</p>
           )}
           {items.map(item => (
-            <div key={item.id} className="flex items-center gap-2 bg-white/70 rounded-lg px-3 py-2 text-sm text-gray-700 group">
+            <div
+              key={item.id}
+              className="flex items-center gap-2 bg-white/70 rounded-lg px-3 py-2 text-sm text-gray-700 group"
+            >
               <span className="flex-1">{item.text}</span>
               <button
                 onClick={() => onDelete(category.id, item.id)}
@@ -168,26 +208,24 @@ function DashboardCard({ category, items, onAdd, onDelete }) {
 }
 
 // ─── TaskRow ─────────────────────────────────────────────
-function TaskRow({ task, onStatusChange, onDelete, onArchiveRestore }) {
+function TaskRow({ task, onStatusChange, onDelete, onToggleDone }) {
   const isDone = task.status === 'done'
   const priorityCfg = PRIORITY_CONFIG[task.priority || 'medium']
 
   return (
-    <div className={`flex items-start gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 hover:bg-[#FAF7F2]/60 group ${isDone ? 'opacity-50' : ''}`}>
-      <div className="mt-0.5 text-gray-200 group-hover:text-gray-300 cursor-grab">
-        <GripVertical size={14} />
-      </div>
+    <div className={`flex items-start gap-3 px-4 py-3 rounded-xl transition-all duration-200 hover:bg-[#FAF7F2]/70 group ${isDone ? 'opacity-50' : ''}`}>
+
+      {/* 耳チェックボックス */}
+      <EarCheckbox isDone={isDone} onClick={() => onToggleDone(task.id, isDone)} />
 
       <div className="flex-1 min-w-0">
-        <div className="flex items-start gap-2 flex-wrap">
-          <span className={`text-sm text-gray-700 leading-relaxed ${isDone ? 'line-through text-gray-400' : ''}`}>
-            {task.title}
-          </span>
-        </div>
+        <span className={`text-sm text-gray-700 leading-relaxed ${isDone ? 'line-through text-gray-400' : ''}`}>
+          {task.title}
+        </span>
         {task.memo && (
           <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{task.memo}</p>
         )}
-        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
           <StatusBadge status={task.status} onChange={s => onStatusChange(task.id, s)} />
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${priorityCfg.color}`}>
             {priorityCfg.emoji} {priorityCfg.label}
@@ -201,7 +239,7 @@ function TaskRow({ task, onStatusChange, onDelete, onArchiveRestore }) {
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5">
         {isDone && (
           <button
-            onClick={() => onArchiveRestore(task.id)}
+            onClick={() => onToggleDone(task.id, isDone)}
             className="p-1.5 text-gray-400 hover:text-[#7AAABB] rounded-lg hover:bg-[#A2C2D0]/10 transition-colors"
             title="リストに戻す"
           >
@@ -245,23 +283,30 @@ function TaskInputForm({ onAdd }) {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(162,194,208,0.20)] border-2 border-[#A2C2D0]/30 p-4" style={{background: 'linear-gradient(135deg, rgba(162,194,208,0.08) 0%, rgba(242,203,201,0.08) 100%)'}}>
+    <div
+      className="relative bg-white rounded-2xl shadow-[0_4px_20px_rgba(162,194,208,0.20)] border-2 border-[#A2C2D0]/30 p-5 overflow-hidden"
+      style={{ background: 'linear-gradient(135deg, rgba(162,194,208,0.07) 0%, rgba(242,203,201,0.07) 100%)' }}
+    >
+      {/* 耳デコレーション（右上コーナー） */}
+      <div className="absolute top-3 right-4 pointer-events-none">
+        <EarDecor size={13} opacity={0.3} />
+      </div>
+
       <form onSubmit={handleSubmit}>
         <div className="flex gap-3 items-center">
-          <div className="text-2xl select-none">🐱</div>
           <input
             ref={inputRef}
             type="text"
             value={title}
             onChange={e => setTitle(e.target.value)}
             onFocus={() => setExpanded(true)}
-            placeholder="新しいタスクを追加しよう！"
+            placeholder="新しいタスクを入力"
             className="flex-1 text-sm font-medium px-4 py-2.5 rounded-xl border-2 border-[#A2C2D0]/25 bg-white/80 focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/40 focus:border-[#A2C2D0]/50 placeholder-gray-400 transition-all"
           />
           <button
             type="submit"
             disabled={!title.trim()}
-            className="px-4 py-2 rounded-xl font-medium transition-all duration-200 active:scale-95 bg-[#A2C2D0] text-white hover:bg-[#7AAABB] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 text-sm"
+            className="px-4 py-2.5 rounded-xl font-medium transition-all duration-200 active:scale-95 bg-[#A2C2D0] text-white hover:bg-[#7AAABB] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 text-sm flex-shrink-0"
           >
             <Plus size={16} />
             追加
@@ -269,29 +314,30 @@ function TaskInputForm({ onAdd }) {
         </div>
 
         {expanded && (
-          <div className="mt-3 flex flex-col gap-2.5 animate-[fade-in_0.3s_ease-out]">
+          <div className="mt-4 flex flex-col gap-3 animate-[fade-in_0.3s_ease-out]">
             <textarea
               value={memo}
               onChange={e => setMemo(e.target.value)}
               placeholder="メモ（任意）"
               rows={2}
-              className="w-full text-sm px-4 py-2 rounded-xl border-2 border-[#A2C2D0]/15 bg-white/80 focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/30 placeholder-gray-400 resize-none"
+              className="w-full text-sm px-4 py-2.5 rounded-xl border-2 border-[#A2C2D0]/15 bg-white/80 focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/30 placeholder-gray-400 resize-none"
             />
-            <div className="flex gap-2 flex-wrap">
+
+            <div className="flex gap-x-4 gap-y-2 flex-wrap items-center">
               <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                <span>ステータス:</span>
+                <span className="font-medium">ステータス</span>
                 <StatusBadge status={status} onChange={setStatus} />
               </div>
 
               <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                <span>優先度:</span>
+                <span className="font-medium">優先度</span>
                 <div className="flex gap-1">
                   {Object.entries(PRIORITY_CONFIG).map(([k, cfg]) => (
                     <button
                       key={k}
                       type="button"
                       onClick={() => setPriority(k)}
-                      className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${cfg.color} ${priority === k ? 'ring-2 ring-offset-1 ring-current' : 'opacity-60 hover:opacity-100'}`}
+                      className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${cfg.color} ${priority === k ? 'ring-2 ring-offset-1 ring-current' : 'opacity-50 hover:opacity-80'}`}
                     >
                       {cfg.emoji} {cfg.label}
                     </button>
@@ -300,7 +346,7 @@ function TaskInputForm({ onAdd }) {
               </div>
 
               <div className="flex items-center gap-1.5 text-xs text-gray-500 ml-auto">
-                <span>期限:</span>
+                <span className="font-medium">期限</span>
                 <input
                   type="date"
                   value={dueDate}
@@ -311,11 +357,32 @@ function TaskInputForm({ onAdd }) {
             </div>
 
             <div className="flex justify-end">
-              <button type="button" onClick={() => setExpanded(false)} className="text-xs text-gray-400 hover:text-gray-600">閉じる</button>
+              <button
+                type="button"
+                onClick={() => setExpanded(false)}
+                className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                閉じる
+              </button>
             </div>
           </div>
         )}
       </form>
+    </div>
+  )
+}
+
+// ─── Empty State ──────────────────────────────────────────
+function EmptyState() {
+  return (
+    <div className="py-14 text-center flex flex-col items-center gap-3">
+      <div className="flex gap-4 text-3xl mb-1">
+        <span>🍜</span>
+        <span>📷</span>
+        <span>🎸</span>
+        <span>🎀</span>
+      </div>
+      <p className="text-sm text-gray-400 font-medium">タスクはありません</p>
     </div>
   )
 }
@@ -350,14 +417,13 @@ export default function App() {
   }, [dashboard])
 
   const addTask = ({ title, memo, status, priority, dueDate }) => {
-    const newTask = {
+    setTasks(prev => [{
       id: Date.now().toString(),
       title, memo, status, priority, dueDate,
       createdAt: new Date().toISOString(),
       completedAt: null,
-    }
-    setTasks(prev => [newTask, ...prev])
-    showToast(randomMsg('add'))
+    }, ...prev])
+    setToast(TOAST_MSGS.add)
   }
 
   const changeStatus = (id, newStatus) => {
@@ -369,21 +435,22 @@ export default function App() {
         completedAt: newStatus === 'done' ? new Date().toISOString() : null,
       }
     }))
-    if (newStatus === 'done') showToast(randomMsg('done'))
+    if (newStatus === 'done') setToast(TOAST_MSGS.done)
   }
 
-  const deleteTask = (id) => {
-    setTasks(prev => prev.filter(t => t.id !== id))
+  // 耳チェックボックス用：done↔doing のトグル
+  const toggleDone = (id, currentlyDone) => {
+    if (currentlyDone) {
+      setTasks(prev => prev.map(t =>
+        t.id === id ? { ...t, status: 'doing', completedAt: null } : t
+      ))
+      setToast(TOAST_MSGS.restore)
+    } else {
+      changeStatus(id, 'done')
+    }
   }
 
-  const restoreTask = (id) => {
-    setTasks(prev => prev.map(t =>
-      t.id === id ? { ...t, status: 'doing', completedAt: null } : t
-    ))
-    showToast('リストに戻したよ🐱')
-  }
-
-  const showToast = (msg) => setToast(msg)
+  const deleteTask = (id) => setTasks(prev => prev.filter(t => t.id !== id))
 
   const addDashboardItem = (categoryId, text) => {
     setDashboard(prev => ({
@@ -410,57 +477,66 @@ export default function App() {
 
   const todayDone = doneTasks.filter(t => {
     if (!t.completedAt) return false
-    const d = new Date(t.completedAt)
-    return d.toDateString() === new Date().toDateString()
+    return new Date(t.completedAt).toDateString() === new Date().toDateString()
   }).length
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] pb-16" style={{fontFamily: "'Noto Sans JP', sans-serif"}}>
+    <div className="min-h-screen bg-[#FAF7F2] pb-20" style={{ fontFamily: "'Noto Sans JP', sans-serif" }}>
 
-      {/* ヘッダー */}
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b-2 border-[#A2C2D0]/20 shadow-[0_2px_12px_rgba(162,194,208,0.25)]">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#A2C2D0] to-[#F2CBC9] flex items-center justify-center text-xl shadow-[0_2px_12px_rgba(162,194,208,0.25)]">
-              🐱
+      {/* ─── ヘッダー ─── */}
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-[#A2C2D0]/25 shadow-[0_2px_12px_rgba(162,194,208,0.18)]">
+        <div className="max-w-4xl mx-auto px-6 py-3.5 flex items-center justify-between">
+
+          {/* ロゴ：cat_Image.png */}
+          <div className="flex items-center gap-3.5">
+            <div className="relative">
+              {/* 耳デコ（ロゴ左上） */}
+              <div className="absolute -top-1 -left-1 pointer-events-none">
+                <EarDecor size={10} opacity={0.5} />
+              </div>
+              <img
+                src={catLogo}
+                alt="ハチワレ"
+                className="w-10 h-10 rounded-2xl object-cover shadow-[0_2px_8px_rgba(162,194,208,0.30)]"
+              />
             </div>
             <div>
-              <h1 className="font-bold text-gray-800 text-lg leading-tight">ハチワレのタスク帳</h1>
-              <p className="text-xs text-gray-400">いっしょにがんばろ💙</p>
+              <h1 className="font-bold text-gray-800 text-base leading-tight tracking-wide">
+                ハチワレのタスク帳
+              </h1>
+              <p className="text-xs text-gray-400 tracking-wider">TASK MANAGER</p>
             </div>
           </div>
 
+          {/* 統計バッジ */}
           <div className="hidden sm:flex items-center gap-2 text-xs">
             <div className="flex items-center gap-1.5 bg-[#A2C2D0]/15 px-3 py-1.5 rounded-full text-[#7AAABB] font-medium">
-              <Clock size={12} />
+              <Clock size={11} />
               進行中 {activeTasks.filter(t => t.status === 'doing').length}
             </div>
             <div className="flex items-center gap-1.5 bg-[#EAF6EF] px-3 py-1.5 rounded-full text-[#4A9E68] font-medium">
-              <CheckCircle2 size={12} />
+              <CheckCircle2 size={11} />
               今日 {todayDone}件完了
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-5 flex flex-col gap-5">
+      <main className="max-w-4xl mx-auto px-6 py-7 flex flex-col gap-7">
 
-        {/* ダッシュボード */}
+        {/* ─── ダッシュボード ─── */}
         <section>
           <button
             onClick={() => setDashboardOpen(v => !v)}
-            className="flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-800 mb-3 transition-colors group"
+            className="flex items-center gap-2 text-xs font-semibold text-gray-500 hover:text-gray-700 mb-4 transition-colors tracking-widest uppercase"
           >
-            <Coffee size={15} className="text-[#A2C2D0]" />
+            <EarDecor size={10} opacity={0.6} />
             ダッシュボード
-            <span className="text-xs font-normal text-gray-400 bg-[#F0EBE3] px-2 py-0.5 rounded-full">定型・予定</span>
-            <span className="ml-1 text-gray-300 group-hover:text-gray-400">
-              {dashboardOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </span>
+            <span className="text-gray-300">{dashboardOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}</span>
           </button>
 
           {dashboardOpen && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-[fade-in_0.3s_ease-out]">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-[fade-in_0.3s_ease-out]">
               {DASHBOARD_CATEGORIES.map(cat => (
                 <DashboardCard
                   key={cat.id}
@@ -474,24 +550,24 @@ export default function App() {
           )}
         </section>
 
-        {/* タスク入力 */}
+        {/* ─── タスク入力 ─── */}
         <section>
           <TaskInputForm onAdd={addTask} />
         </section>
 
-        {/* アクティブタスク */}
+        {/* ─── アクティブタスク ─── */}
         <section>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Sparkles size={15} className="text-[#E5A8A5]" />
-              <span className="text-sm font-semibold text-gray-700">やること</span>
-              <span className="text-xs text-gray-400 bg-[#F0EBE3] px-2 py-0.5 rounded-full">{filteredActive.length}件</span>
+              <span className="text-xs font-semibold text-gray-500 tracking-widest uppercase">タスク</span>
+              <span className="text-xs text-gray-400 bg-[#F0EBE3] px-2 py-0.5 rounded-full">{filteredActive.length}</span>
             </div>
 
+            {/* フィルター */}
             <div className="flex items-center gap-1 flex-wrap">
               <button
                 onClick={() => setFilter('all')}
-                className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${filter === 'all' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${filter === 'all' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-100'}`}
               >
                 すべて
               </button>
@@ -511,62 +587,63 @@ export default function App() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(162,194,208,0.20)] border border-[#A2C2D0]/20 p-2 flex flex-col divide-y divide-gray-50">
+          <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(162,194,208,0.18)] border border-[#A2C2D0]/18 overflow-hidden">
             {filteredActive.length === 0 ? (
-              <div className="py-12 text-center">
-                <div className="text-4xl mb-3">🐱</div>
-                <p className="text-sm text-gray-400">タスクがないよ！のんびりしよ💙</p>
-              </div>
+              <EmptyState />
             ) : (
-              filteredActive.map(task => (
-                <TaskRow
-                  key={task.id}
-                  task={task}
-                  onStatusChange={changeStatus}
-                  onDelete={deleteTask}
-                  onArchiveRestore={restoreTask}
-                />
-              ))
-            )}
-          </div>
-        </section>
-
-        {/* Doneアーカイブ */}
-        {doneTasks.length > 0 && (
-          <section>
-            <button
-              onClick={() => setArchiveOpen(v => !v)}
-              className="flex items-center gap-2 w-full text-sm font-semibold text-gray-500 hover:text-gray-700 mb-3 transition-colors group"
-            >
-              <Archive size={15} className="text-[#8FC8A4]" />
-              思い出アーカイブ ✅
-              <span className="text-xs font-normal text-gray-400 bg-[#F0EBE3] px-2 py-0.5 rounded-full">{doneTasks.length}件完了</span>
-              <span className="ml-auto text-gray-300 group-hover:text-gray-400">
-                {archiveOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              </span>
-            </button>
-
-            {archiveOpen && (
-              <div className="bg-[#FAF7F2]/40 rounded-2xl shadow-[0_4px_20px_rgba(162,194,208,0.20)] border border-[#A2C2D0]/20 p-2 animate-[fade-in_0.3s_ease-out] flex flex-col divide-y divide-gray-50">
-                <div className="pb-2.5 mb-1 text-center">
-                  <p className="text-xs text-gray-400">完了したタスクたち💙 エライッ！</p>
-                </div>
-                {doneTasks.map(task => (
+              <div className="flex flex-col divide-y divide-[#F5F0EB]">
+                {filteredActive.map(task => (
                   <TaskRow
                     key={task.id}
                     task={task}
                     onStatusChange={changeStatus}
                     onDelete={deleteTask}
-                    onArchiveRestore={restoreTask}
+                    onToggleDone={toggleDone}
                   />
                 ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ─── 完了済みアーカイブ ─── */}
+        {doneTasks.length > 0 && (
+          <section>
+            <button
+              onClick={() => setArchiveOpen(v => !v)}
+              className="flex items-center gap-2 w-full text-xs font-semibold text-gray-400 hover:text-gray-600 mb-4 transition-colors tracking-widest uppercase"
+            >
+              <Archive size={13} className="text-[#8FC8A4]" />
+              完了済み
+              <span className="text-gray-300 bg-[#F0EBE3] px-2 py-0.5 rounded-full normal-case tracking-normal font-normal">{doneTasks.length}件</span>
+              <span className="ml-auto text-gray-300">
+                {archiveOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+              </span>
+            </button>
+
+            {archiveOpen && (
+              <div className="bg-white/60 rounded-2xl border border-[#A2C2D0]/15 overflow-hidden animate-[fade-in_0.3s_ease-out]">
+                <div className="px-4 py-3 border-b border-[#F0EBE3]">
+                  <p className="text-xs text-gray-400 text-center">完了済みのタスク</p>
+                </div>
+                <div className="flex flex-col divide-y divide-[#F5F0EB]">
+                  {doneTasks.map(task => (
+                    <TaskRow
+                      key={task.id}
+                      task={task}
+                      onStatusChange={changeStatus}
+                      onDelete={deleteTask}
+                      onToggleDone={toggleDone}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </section>
         )}
       </main>
 
-      {/* トースト */}
+      {/* ─── トースト ─── */}
       {toast && <Toast msg={toast} onDone={() => setToast(null)} />}
     </div>
   )
