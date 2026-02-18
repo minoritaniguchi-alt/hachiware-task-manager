@@ -56,10 +56,10 @@ function CatEarsDecor({ color, position }) {
   }[position] ?? ''
   return (
     <div className={`pointer-events-none ${posClass}`} aria-hidden="true">
-      {/* 左耳: M0 14 L4 6 Q12 -2 20 6 L24 14 Z  右耳: +30offset */}
-      <svg width="54" height="14" viewBox="0 0 54 14" fill="none">
-        <path d="M0 14 L4 6 Q12 -2 20 6 L24 14 Z" fill={color} />
-        <path d="M30 14 L34 6 Q42 -2 50 6 L54 14 Z" fill={color} />
+      {/* 左耳: M0 18 L4 8 Q12 -4 20 8 L24 18 Z  右耳: +30offset */}
+      <svg width="54" height="18" viewBox="0 0 54 18" fill="none">
+        <path d="M0 18 L4 8 Q12 -4 20 8 L24 18 Z" fill={color} />
+        <path d="M30 18 L34 8 Q42 -4 50 8 L54 18 Z" fill={color} />
       </svg>
     </div>
   )
