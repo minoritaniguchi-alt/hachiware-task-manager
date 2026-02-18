@@ -47,6 +47,7 @@ const TOAST_MSGS = { add: 'タスクを追加しました', done: '完了しま�
  */
 
 // ─── 猫耳 × 2 ────────────────────────────────────────────
+// 直線ベースの三角形 + 先端だけ微小な丸み（Q命令）で猫耳シルエット
 function CatEarsDecor({ color, position }) {
   const posClass = {
     'top-left':   'absolute top-1 left-3',
@@ -55,9 +56,11 @@ function CatEarsDecor({ color, position }) {
   }[position] ?? ''
   return (
     <div className={`pointer-events-none ${posClass}`} aria-hidden="true">
-      <svg width="50" height="22" viewBox="0 0 50 22" fill="none">
-        <path d="M2 22 C2 6 6 2 12 2 C18 2 22 6 22 22 Z" fill={color} />
-        <path d="M28 22 C28 6 32 2 38 2 C44 2 48 6 48 22 Z" fill={color} />
+      <svg width="48" height="18" viewBox="0 0 48 18" fill="none">
+        {/* 左耳: 直線の斜辺 + 先端だけ微小丸み */}
+        <path d="M0 18 L8 2 Q10 0 12 2 L20 18 Z" fill={color} />
+        {/* 右耳: 直線の斜辺 + 先端だけ微小丸み */}
+        <path d="M28 18 L36 2 Q38 0 40 2 L48 18 Z" fill={color} />
       </svg>
     </div>
   )
@@ -165,7 +168,7 @@ function DashboardCard({ category, items, onAdd, onDelete }) {
   const [input, setInput] = useState('')
   const handleAdd = () => { const v = input.trim(); if (!v) return; onAdd(category.id, v); setInput('') }
   return (
-    <div className="relative pt-6">
+    <div className="relative pt-5">
       <CatEarsDecor position={category.earPosition} color={category.color} />
       <div className={`rounded-2xl border-2 ${category.borderColor} bg-gradient-to-br ${category.bgColor} transition-all duration-300`}>
         <button onClick={() => setOpen(v => !v)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/20 transition-colors">
