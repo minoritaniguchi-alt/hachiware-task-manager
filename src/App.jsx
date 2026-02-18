@@ -160,15 +160,18 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
   const handleAdd = () => { const v = input.trim(); if (!v) return; onAdd(category.id, v); setInput('') }
 
   // ハチワレ模様：左右コーナーにテーマ色、中央クリームのV字抜き
+  // ハチワレ模様: ボカシなし・単色の鋭いV字
+  // 左半分: 右下方向へ50%で完全に切断, 右半分: 左下方向へ50%で切断
+  // → 左右コーナーがテーマ色・中央が白のシャープなV字になる
   const hachiwariStyle = {
     backgroundImage: [
-      `linear-gradient(to bottom right, ${category.color} 0%, ${category.color} 45%, transparent 72%)`,
-      `linear-gradient(to bottom left,  ${category.color} 0%, ${category.color} 45%, transparent 72%)`,
+      `linear-gradient(to bottom right, ${category.color} 50%, #ffffff 50%)`,
+      `linear-gradient(to bottom left,  ${category.color} 50%, #ffffff 50%)`,
     ].join(', '),
-    backgroundSize: '52% 100%, 52% 100%',
+    backgroundSize: '51% 100%, 51% 100%',
     backgroundPosition: 'left top, right top',
     backgroundRepeat: 'no-repeat, no-repeat',
-    backgroundColor: '#FAF7F2',
+    backgroundColor: '#ffffff',
   }
 
   return (
