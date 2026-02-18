@@ -66,14 +66,6 @@ function CatEarsDecor({ color, position }) {
   )
 }
 
-function EarDecor({ size = 14, color = '#A2C2D0', opacity = 0.45 }) {
-  return (
-    <svg width={size * 2.3} height={size} viewBox="0 0 30 16" fill="none" style={{ opacity }} aria-hidden="true">
-      <path d="M1 15 L8 1 L15 15"  stroke={color} strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />
-      <path d="M15 15 L22 1 L29 15" stroke={color} strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
-  )
-}
 
 function EarCheckbox({ isDone, onClick }) {
   return (
@@ -156,7 +148,7 @@ function Toast({ msg, onDone }) {
   return (
     <div className="fixed bottom-6 right-6 z-[100] animate-[fade-in_0.3s_ease-out]">
       <div className="bg-white border border-[#A2C2D0]/30 shadow-[0_4px_20px_rgba(162,194,208,0.20)] rounded-2xl px-5 py-3 flex items-center gap-3 text-sm font-medium text-gray-700">
-        <EarDecor size={12} opacity={0.8} />{msg}
+        {msg}
       </div>
     </div>
   )
@@ -338,7 +330,6 @@ function TaskInputForm({ onAdd }) {
   return (
     <div className="relative bg-white rounded-2xl shadow-[0_4px_20px_rgba(162,194,208,0.20)] border-2 border-[#A2C2D0]/30 p-5"
       style={{ background: 'linear-gradient(135deg, rgba(162,194,208,0.07) 0%, rgba(242,203,201,0.07) 100%)' }}>
-      <div className="absolute top-3 right-4 pointer-events-none"><EarDecor size={13} opacity={0.3} /></div>
       <form onSubmit={handleSubmit}>
         <div className="flex gap-3 items-center">
           <input ref={inputRef} type="text" value={title} onChange={e => setTitle(e.target.value)} onFocus={() => setExpanded(true)}
@@ -444,7 +435,6 @@ function TaskEditModal({ task, onSave, onClose }) {
         {/* ヘッダー */}
         <div className="sticky top-0 bg-white/95 backdrop-blur-sm flex items-center justify-between px-6 py-4 border-b border-[#F0EBE3] z-10">
           <div className="flex items-center gap-2">
-            <EarDecor size={12} opacity={0.6} />
             <h2 className="font-semibold text-gray-800 text-sm">タスクを編集</h2>
           </div>
           <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
@@ -617,7 +607,6 @@ export default function App() {
         <div className="max-w-4xl mx-auto px-6 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3.5">
             <div className="relative">
-              <div className="absolute -top-1 -left-1 pointer-events-none"><EarDecor size={10} opacity={0.5} /></div>
               <img src={catLogo} alt="Koto Note" className="w-10 h-10 rounded-2xl object-cover shadow-[0_2px_8px_rgba(162,194,208,0.30)]" />
             </div>
             <div>
@@ -642,7 +631,7 @@ export default function App() {
         <section>
           <button onClick={() => setDashboardOpen(v => !v)}
             className="flex items-center gap-2 text-xs font-semibold text-gray-500 hover:text-gray-700 mb-5 transition-colors tracking-widest uppercase">
-            <EarDecor size={10} opacity={0.6} />ダッシュボード
+            ダッシュボード
             <span className="text-gray-300">{dashboardOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}</span>
           </button>
           {dashboardOpen && (
