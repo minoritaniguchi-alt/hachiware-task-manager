@@ -160,19 +160,46 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
   const handleAdd = () => { const v = input.trim(); if (!v) return; onAdd(category.id, v); setInput('') }
 
   // ハチワレ模様：左右コーナーにテーマ色、中央クリームのV字抜き
-  // ハチワレ模様: ボカシなし・単色の鋭いV字
-  // 左半分: 右下方向へ50%で完全に切断, 右半分: 左下方向へ50%で切断
-  // → 左右コーナーがテーマ色・中央が白のシャープなV字になる
-  const hachiwariStyle = {
-    backgroundImage: [
-      `linear-gradient(to bottom right, ${category.color} 50%, #ffffff 50%)`,
-      `linear-gradient(to bottom left,  ${category.color} 50%, #ffffff 50%)`,
-    ].join(', '),
-    backgroundSize: '51% 100%, 51% 100%',
-    backgroundPosition: 'left top, right top',
-    backgroundRepeat: 'no-repeat, no-repeat',
-    backgroundColor: '#ffffff',
-  }
+  // ハチワレ模様: 耳の位置に応じてパターンを切り替え（全てシャープカット・ボカシなし）
+  //
+  //  top-left  → 左三角のみ: 耳内側付け根(≈39px)がちょうど底辺の切断位置になる
+  //  top-right → 右三角のみ: 鏡像
+  //  top-center → 逆ハ字: 中央に色・両外が白。内側付け根(≈50%)が頂点になる
+  //
+  // backgroundSize 51% 100% のとき、底辺カット位置 = W/2 − H/2
+  //   W = 0.51 × 272px ≈ 139px, H = 62px → cut ≈ 39px ← 耳内側付け根と一致
+  const hachiwariStyle = (() => {
+    const ep = category.earPosition
+    if (ep === 'top-left') {
+      return {
+        backgroundImage: `linear-gradient(to bottom right, ${category.color} 50%, #ffffff 50%)`,
+        backgroundSize: '51% 100%',
+        backgroundPosition: 'left top',
+        backgroundRepeat: 'no-repeat',
+        backgroundColor: '#ffffff',
+      }
+    }
+    if (ep === 'top-right') {
+      return {
+        backgroundImage: `linear-gradient(to bottom left, ${category.color} 50%, #ffffff 50%)`,
+        backgroundSize: '51% 100%',
+        backgroundPosition: 'right top',
+        backgroundRepeat: 'no-repeat',
+        backgroundColor: '#ffffff',
+      }
+    }
+    // top-center: 両外が白・中央が色（耳の付け根が上部中央に来る逆ハ字）
+    return {
+      backgroundImage: [
+        `linear-gradient(to bottom right, #ffffff 50%, ${category.color} 50%)`,
+        `linear-gradient(to bottom left,  #ffffff 50%, ${category.color} 50%)`,
+      ].join(', '),
+      backgroundSize: '51% 100%, 51% 100%',
+      backgroundPosition: 'left top, right top',
+      backgroundRepeat: 'no-repeat, no-repeat',
+      backgroundColor: '#ffffff',
+    }
+  })()
 
   return (
     <div className="relative pt-5">
