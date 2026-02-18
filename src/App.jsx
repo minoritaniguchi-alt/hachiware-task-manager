@@ -7,7 +7,7 @@ import catLogo from './assets/cat_Image.png'
 import './index.css'
 
 // ─── 定数 ───────────────────────────────────────────────
-const STORAGE_KEY = 'hachiware-tasks-v1'
+const STORAGE_KEY   = 'hachiware-tasks-v1'
 const DASHBOARD_KEY = 'hachiware-dashboard-v1'
 
 const STATUS_CONFIG = {
@@ -26,10 +26,36 @@ const PRIORITY_CONFIG = {
   low:    { label: '低', color: 'text-[#6A9E85] bg-[#EBF3EE]', emoji: '🟢' },
 }
 
+/**
+ * カテゴリごとに耳位置・尻尾位置・枠色を定義。
+ * earPosition: 'top-left' | 'top-center' | 'top-right'
+ * tailPosition: 'right-bottom' | 'left-bottom' | null
+ */
 const DASHBOARD_CATEGORIES = [
-  { id: 'routine',  label: 'ルーチン業務', emoji: '🍜', borderColor: 'border-[#A2C2D0]', bgColor: 'from-[#A2C2D0]/10 to-[#A2C2D0]/5' },
-  { id: 'adhoc',   label: '臨時対応',     emoji: '📷', borderColor: 'border-[#F2CBC9]', bgColor: 'from-[#F2CBC9]/10 to-[#F2CBC9]/5' },
-  { id: 'schedule', label: '予定',         emoji: '🎸', borderColor: 'border-[#C8D8A8]', bgColor: 'from-[#C8D8A8]/20 to-[#C8D8A8]/5' },
+  {
+    id: 'routine',  label: 'ルーチン業務', emoji: '🍜',
+    borderColor: 'border-[#A2C2D0]',
+    bgColor:     'from-[#A2C2D0]/10 to-[#A2C2D0]/5',
+    color:       '#A2C2D0',
+    earPosition:  'top-left',
+    tailPosition: 'right-bottom',
+  },
+  {
+    id: 'adhoc',   label: '臨時対応',     emoji: '📷',
+    borderColor: 'border-[#F2CBC9]',
+    bgColor:     'from-[#F2CBC9]/10 to-[#F2CBC9]/5',
+    color:       '#F2CBC9',
+    earPosition:  'top-center',
+    tailPosition: null,
+  },
+  {
+    id: 'schedule', label: '予定',        emoji: '🎸',
+    borderColor: 'border-[#C8D8A8]',
+    bgColor:     'from-[#C8D8A8]/20 to-[#C8D8A8]/5',
+    color:       '#C8D8A8',
+    earPosition:  'top-right',
+    tailPosition: 'left-bottom',
+  },
 ]
 
 const TOAST_MSGS = {
@@ -38,34 +64,68 @@ const TOAST_MSGS = {
   restore: 'リストに戻しました',
 }
 
-// ─── 耳モチーフ：チェックボックス ────────────────────────
-// 未完了: アウトライン三角×2（くすみブルー）
-// 完了:   塗りつぶし三角×2（グリーン）
-function EarCheckbox({ isDone, onClick }) {
+// ─── 猫耳（絶対配置 SVG 三角形）────────────────────────────
+// DashboardCard の wrapper に pt-5 を付けることで
+// top-0 に置いた耳の底辺がカード上辺と重なり「枠と一体化」して見える
+function CatEarDecor({ position, color }) {
+  const posClass = {
+    'top-left':   'absolute top-0 left-4',
+    'top-center': 'absolute top-0 left-1/2 -translate-x-1/2',
+    'top-right':  'absolute top-0 right-4',
+  }[position] ?? ''
+
   return (
-    <button
-      onClick={onClick}
-      className="mt-1 flex-shrink-0 transition-transform duration-150 hover:scale-110 active:scale-95"
-      title={isDone ? 'リストに戻す' : '完了にする'}
-    >
-      <svg width="22" height="15" viewBox="0 0 30 16" fill="none">
-        {isDone ? (
-          <>
-            <path d="M1 15 L8 1 L15 15 Z"  fill="#4A9E68" />
-            <path d="M15 15 L22 1 L29 15 Z" fill="#4A9E68" />
-          </>
-        ) : (
-          <>
-            <path d="M1 15 L8 1 L15 15"  stroke="#A2C2D0" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-            <path d="M15 15 L22 1 L29 15" stroke="#A2C2D0" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-          </>
-        )}
+    <div className={`pointer-events-none ${posClass}`} aria-hidden="true">
+      <svg width="28" height="22" viewBox="0 0 28 22" fill="none">
+        <path d="M1 22 L14 1 L27 22Z" fill={color} />
       </svg>
-    </button>
+    </div>
   )
 }
 
-// ─── 耳モチーフ：装飾パーツ ──────────────────────────────
+// ─── 猫尻尾（絶対配置 SVG C 字曲線）────────────────────────
+// カード側面の border と同色の stroke で「枠から生えた尻尾」を表現
+function CatTailDecor({ position, color }) {
+  if (position === 'right-bottom') {
+    return (
+      <div
+        className="absolute right-0 bottom-8 translate-x-full pointer-events-none"
+        aria-hidden="true"
+      >
+        <svg width="20" height="48" viewBox="0 0 20 48" fill="none">
+          <path
+            d="M0 6 Q18 6 18 22 Q18 40 0 44"
+            stroke={color}
+            strokeWidth="2.8"
+            fill="none"
+            strokeLinecap="round"
+          />
+        </svg>
+      </div>
+    )
+  }
+  if (position === 'left-bottom') {
+    return (
+      <div
+        className="absolute left-0 bottom-8 -translate-x-full pointer-events-none"
+        aria-hidden="true"
+      >
+        <svg width="20" height="48" viewBox="0 0 20 48" fill="none">
+          <path
+            d="M20 6 Q2 6 2 22 Q2 40 20 44"
+            stroke={color}
+            strokeWidth="2.8"
+            fill="none"
+            strokeLinecap="round"
+          />
+        </svg>
+      </div>
+    )
+  }
+  return null
+}
+
+// ─── 耳モチーフ（ヘッダー・トースト用 アウトライン版）──────
 function EarDecor({ size = 14, color = '#A2C2D0', opacity = 0.45 }) {
   return (
     <svg
@@ -79,6 +139,31 @@ function EarDecor({ size = 14, color = '#A2C2D0', opacity = 0.45 }) {
       <path d="M1 15 L8 1 L15 15"  stroke={color} strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />
       <path d="M15 15 L22 1 L29 15" stroke={color} strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />
     </svg>
+  )
+}
+
+// ─── 耳型チェックボックス ────────────────────────────────
+function EarCheckbox({ isDone, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="mt-1 flex-shrink-0 transition-transform duration-150 hover:scale-110 active:scale-95"
+      title={isDone ? 'リストに戻す' : '完了にする'}
+    >
+      <svg width="22" height="15" viewBox="0 0 30 16" fill="none">
+        {isDone ? (
+          <>
+            <path d="M1 15 L8 1 L15 15 Z"   fill="#4A9E68" />
+            <path d="M15 15 L22 1 L29 15 Z" fill="#4A9E68" />
+          </>
+        ) : (
+          <>
+            <path d="M1 15 L8 1 L15 15"  stroke="#A2C2D0" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+            <path d="M15 15 L22 1 L29 15" stroke="#A2C2D0" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+          </>
+        )}
+      </svg>
+    </button>
   )
 }
 
@@ -118,7 +203,7 @@ function StatusBadge({ status, onChange }) {
   )
 }
 
-// ─── Toast通知 ──────────────────────────────────────────
+// ─── Toast ───────────────────────────────────────────────
 function Toast({ msg, onDone }) {
   useEffect(() => {
     const t = setTimeout(onDone, 2500)
@@ -135,7 +220,7 @@ function Toast({ msg, onDone }) {
   )
 }
 
-// ─── DashboardCard ───────────────────────────────────────
+// ─── DashboardCard（猫耳＋尻尾付き）─────────────────────────
 function DashboardCard({ category, items, onAdd, onDelete }) {
   const [open, setOpen] = useState(true)
   const [input, setInput] = useState('')
@@ -148,61 +233,79 @@ function DashboardCard({ category, items, onAdd, onDelete }) {
   }
 
   return (
-    <div className={`rounded-2xl border-2 ${category.borderColor} bg-gradient-to-br ${category.bgColor} overflow-hidden transition-all duration-300`}>
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/20 transition-colors"
+    // pt-5（20px）: 耳 SVG 22px のうち 2px だけカード上辺に重なり
+    // ボーダーと一体化した「耳が生えている」見た目を実現する
+    // overflow は visible（デフォルト）にして尻尾がカード外へはみ出せるようにする
+    <div className="relative pt-5">
+      {/* 猫耳 */}
+      <CatEarDecor position={category.earPosition} color={category.color} />
+
+      {/* 猫尻尾 */}
+      {category.tailPosition && (
+        <CatTailDecor position={category.tailPosition} color={category.color} />
+      )}
+
+      {/* カード本体 — overflow-hidden を外して尻尾が外にはみ出せるようにした */}
+      <div
+        className={`rounded-2xl border-2 ${category.borderColor} bg-gradient-to-br ${category.bgColor} transition-all duration-300`}
       >
-        <div className="flex items-center gap-2 font-semibold text-gray-700 text-sm">
-          <span className="text-base">{category.emoji}</span>
-          {category.label}
-          <span className="text-xs font-normal bg-white/60 px-2 py-0.5 rounded-full text-gray-500">
-            {items.length}件
-          </span>
-        </div>
-        {open
-          ? <ChevronUp size={15} className="text-gray-400" />
-          : <ChevronDown size={15} className="text-gray-400" />}
-      </button>
-
-      {open && (
-        <div className="px-4 pb-4 flex flex-col gap-2">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAdd()}
-              placeholder="追加する..."
-              className="flex-1 text-sm px-3 py-1.5 rounded-lg border border-white/80 bg-white/70 focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/40 placeholder-gray-400"
-            />
-            <button
-              onClick={handleAdd}
-              className="p-1.5 rounded-lg bg-white/80 hover:bg-white text-[#7AAABB] transition-colors"
-            >
-              <Plus size={16} />
-            </button>
+        {/* 折りたたみトグル */}
+        <button
+          onClick={() => setOpen(v => !v)}
+          className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/20 transition-colors"
+        >
+          <div className="flex items-center gap-2 font-semibold text-gray-700 text-sm">
+            <span className="text-base">{category.emoji}</span>
+            {category.label}
+            <span className="text-xs font-normal bg-white/60 px-2 py-0.5 rounded-full text-gray-500">
+              {items.length}件
+            </span>
           </div>
+          {open
+            ? <ChevronUp size={15} className="text-gray-400" />
+            : <ChevronDown size={15} className="text-gray-400" />}
+        </button>
 
-          {items.length === 0 && (
-            <p className="text-xs text-gray-400 text-center py-1">項目なし</p>
-          )}
-          {items.map(item => (
-            <div
-              key={item.id}
-              className="flex items-center gap-2 bg-white/70 rounded-lg px-3 py-2 text-sm text-gray-700 group"
-            >
-              <span className="flex-1">{item.text}</span>
+        {/* コンテンツ（条件レンダリングで折りたたみ実現）*/}
+        {open && (
+          <div className="px-4 pb-4 flex flex-col gap-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                placeholder="追加する..."
+                className="flex-1 text-sm px-3 py-1.5 rounded-lg border border-white/80 bg-white/70 focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/40 placeholder-gray-400"
+              />
               <button
-                onClick={() => onDelete(category.id, item.id)}
-                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-400 transition-all"
+                onClick={handleAdd}
+                className="p-1.5 rounded-lg bg-white/80 hover:bg-white text-[#7AAABB] transition-colors"
               >
-                <Trash2 size={13} />
+                <Plus size={16} />
               </button>
             </div>
-          ))}
-        </div>
-      )}
+
+            {items.length === 0 && (
+              <p className="text-xs text-gray-400 text-center py-1">項目なし</p>
+            )}
+            {items.map(item => (
+              <div
+                key={item.id}
+                className="flex items-center gap-2 bg-white/70 rounded-lg px-3 py-2 text-sm text-gray-700 group"
+              >
+                <span className="flex-1">{item.text}</span>
+                <button
+                  onClick={() => onDelete(category.id, item.id)}
+                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-400 transition-all"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -213,9 +316,9 @@ function TaskRow({ task, onStatusChange, onDelete, onToggleDone }) {
   const priorityCfg = PRIORITY_CONFIG[task.priority || 'medium']
 
   return (
-    <div className={`flex items-start gap-3 px-4 py-3 rounded-xl transition-all duration-200 hover:bg-[#FAF7F2]/70 group ${isDone ? 'opacity-50' : ''}`}>
-
-      {/* 耳チェックボックス */}
+    <div
+      className={`flex items-start gap-3 px-4 py-3 rounded-xl transition-all duration-200 hover:bg-[#FAF7F2]/70 group ${isDone ? 'opacity-50' : ''}`}
+    >
       <EarCheckbox isDone={isDone} onClick={() => onToggleDone(task.id, isDone)} />
 
       <div className="flex-1 min-w-0">
@@ -287,11 +390,9 @@ function TaskInputForm({ onAdd }) {
       className="relative bg-white rounded-2xl shadow-[0_4px_20px_rgba(162,194,208,0.20)] border-2 border-[#A2C2D0]/30 p-5 overflow-hidden"
       style={{ background: 'linear-gradient(135deg, rgba(162,194,208,0.07) 0%, rgba(242,203,201,0.07) 100%)' }}
     >
-      {/* 耳デコレーション（右上コーナー） */}
       <div className="absolute top-3 right-4 pointer-events-none">
         <EarDecor size={13} opacity={0.3} />
       </div>
-
       <form onSubmit={handleSubmit}>
         <div className="flex gap-3 items-center">
           <input
@@ -322,13 +423,11 @@ function TaskInputForm({ onAdd }) {
               rows={2}
               className="w-full text-sm px-4 py-2.5 rounded-xl border-2 border-[#A2C2D0]/15 bg-white/80 focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/30 placeholder-gray-400 resize-none"
             />
-
             <div className="flex gap-x-4 gap-y-2 flex-wrap items-center">
               <div className="flex items-center gap-1.5 text-xs text-gray-500">
                 <span className="font-medium">ステータス</span>
                 <StatusBadge status={status} onChange={setStatus} />
               </div>
-
               <div className="flex items-center gap-1.5 text-xs text-gray-500">
                 <span className="font-medium">優先度</span>
                 <div className="flex gap-1">
@@ -344,7 +443,6 @@ function TaskInputForm({ onAdd }) {
                   ))}
                 </div>
               </div>
-
               <div className="flex items-center gap-1.5 text-xs text-gray-500 ml-auto">
                 <span className="font-medium">期限</span>
                 <input
@@ -355,7 +453,6 @@ function TaskInputForm({ onAdd }) {
                 />
               </div>
             </div>
-
             <div className="flex justify-end">
               <button
                 type="button"
@@ -438,7 +535,6 @@ export default function App() {
     if (newStatus === 'done') setToast(TOAST_MSGS.done)
   }
 
-  // 耳チェックボックス用：done↔doing のトグル
   const toggleDone = (id, currentlyDone) => {
     if (currentlyDone) {
       setTasks(prev => prev.map(t =>
@@ -455,14 +551,14 @@ export default function App() {
   const addDashboardItem = (categoryId, text) => {
     setDashboard(prev => ({
       ...prev,
-      [categoryId]: [...(prev[categoryId] || []), { id: Date.now().toString(), text }]
+      [categoryId]: [...(prev[categoryId] || []), { id: Date.now().toString(), text }],
     }))
   }
 
   const deleteDashboardItem = (categoryId, itemId) => {
     setDashboard(prev => ({
       ...prev,
-      [categoryId]: (prev[categoryId] || []).filter(i => i.id !== itemId)
+      [categoryId]: (prev[categoryId] || []).filter(i => i.id !== itemId),
     }))
   }
 
@@ -486,29 +582,26 @@ export default function App() {
       {/* ─── ヘッダー ─── */}
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-[#A2C2D0]/25 shadow-[0_2px_12px_rgba(162,194,208,0.18)]">
         <div className="max-w-4xl mx-auto px-6 py-3.5 flex items-center justify-between">
-
-          {/* ロゴ：cat_Image.png */}
           <div className="flex items-center gap-3.5">
             <div className="relative">
-              {/* 耳デコ（ロゴ左上） */}
               <div className="absolute -top-1 -left-1 pointer-events-none">
                 <EarDecor size={10} opacity={0.5} />
               </div>
               <img
                 src={catLogo}
-                alt="ハチワレ"
+                alt="Koto Note ロゴ"
                 className="w-10 h-10 rounded-2xl object-cover shadow-[0_2px_8px_rgba(162,194,208,0.30)]"
               />
             </div>
             <div>
+              {/* アプリ名: Koto Note */}
               <h1 className="font-bold text-gray-800 text-base leading-tight tracking-wide">
-                ハチワレのタスク帳
+                Koto Note
               </h1>
               <p className="text-xs text-gray-400 tracking-wider">TASK MANAGER</p>
             </div>
           </div>
 
-          {/* 統計バッジ */}
           <div className="hidden sm:flex items-center gap-2 text-xs">
             <div className="flex items-center gap-1.5 bg-[#A2C2D0]/15 px-3 py-1.5 rounded-full text-[#7AAABB] font-medium">
               <Clock size={11} />
@@ -528,15 +621,18 @@ export default function App() {
         <section>
           <button
             onClick={() => setDashboardOpen(v => !v)}
-            className="flex items-center gap-2 text-xs font-semibold text-gray-500 hover:text-gray-700 mb-4 transition-colors tracking-widest uppercase"
+            className="flex items-center gap-2 text-xs font-semibold text-gray-500 hover:text-gray-700 mb-5 transition-colors tracking-widest uppercase"
           >
             <EarDecor size={10} opacity={0.6} />
             ダッシュボード
-            <span className="text-gray-300">{dashboardOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}</span>
+            <span className="text-gray-300">
+              {dashboardOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            </span>
           </button>
 
           {dashboardOpen && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-[fade-in_0.3s_ease-out]">
+            // px-3 で左右に少し余白を確保し尻尾がページ端でクリップされにくくする
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-6 px-3 animate-[fade-in_0.3s_ease-out]">
               {DASHBOARD_CATEGORIES.map(cat => (
                 <DashboardCard
                   key={cat.id}
@@ -562,8 +658,6 @@ export default function App() {
               <span className="text-xs font-semibold text-gray-500 tracking-widest uppercase">タスク</span>
               <span className="text-xs text-gray-400 bg-[#F0EBE3] px-2 py-0.5 rounded-full">{filteredActive.length}</span>
             </div>
-
-            {/* フィルター */}
             <div className="flex items-center gap-1 flex-wrap">
               <button
                 onClick={() => setFilter('all')}
@@ -615,7 +709,7 @@ export default function App() {
             >
               <Archive size={13} className="text-[#8FC8A4]" />
               完了済み
-              <span className="text-gray-300 bg-[#F0EBE3] px-2 py-0.5 rounded-full normal-case tracking-normal font-normal">{doneTasks.length}件</span>
+              <span className="bg-[#F0EBE3] px-2 py-0.5 rounded-full normal-case tracking-normal font-normal text-gray-400">{doneTasks.length}件</span>
               <span className="ml-auto text-gray-300">
                 {archiveOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
               </span>
