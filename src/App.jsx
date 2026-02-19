@@ -55,11 +55,11 @@ function CatEarsDecor({ color, position }) {
     'top-right':  'absolute top-1 right-3',
   }[position] ?? ''
   return (
-    <div className={`pointer-events-none ${posClass}`} aria-hidden="true">
-      {/* 左耳: M0 18 L4 8 Q12 -4 20 8 L24 18 Z  右耳: +30offset */}
-      <svg width="54" height="18" viewBox="0 0 54 18" fill="none">
-        <path d="M0 18 L4 8 Q12 -4 20 8 L24 18 Z" fill={color} />
-        <path d="M30 18 L34 8 Q42 -4 50 8 L54 18 Z" fill={color} />
+    // style={{ color }} → fill="currentColor" が参照 → CSS変数と完全同期
+    <div className={`pointer-events-none ${posClass}`} aria-hidden="true" style={{ color }}>
+      <svg width="54" height="18" viewBox="0 0 54 18">
+        <path d="M0 18 L4 8 Q12 -4 20 8 L24 18 Z" fill="currentColor" />
+        <path d="M30 18 L34 8 Q42 -4 50 8 L54 18 Z" fill="currentColor" />
       </svg>
     </div>
   )
@@ -159,29 +159,18 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
   const [input, setInput] = useState('')
   const handleAdd = () => { const v = input.trim(); if (!v) return; onAdd(category.id, v); setInput('') }
 
-  // ハチワレ模様：左右コーナーにテーマ色、中央クリームのV字抜き
-  // ハチワレ模様: 135deg/225deg の鋭角なし・ボカシなし単色塗り分け
-  //
-  //  公式: linear-gradient(135deg, color P%, transparent P%) + 225deg 版
-  //  ボトムカット位置 = P×(W+H) − H (W≈272px, H=62px, W+H≈334px)
-  //
-  //  top-left / top-right:
-  //    P = 30% → カット位置 = 0.30×334 − 62 = 100.2−62 = 38.2px ≈ 耳内側付け根 39px ✓
-  //  top-center:
-  //    P = 49% → カット位置 = 0.49×334 − 62 = 163.7−62 = 101.7px (両側)
-  //              y=0 での色範囲 = 0〜163.7px・108.3〜272px → 耳(109-163px)をカバー ✓
-  //              ボトムの白V幅 = 272−2×101.7 = 68.6px（視認できる余白あり）
-  const pct = category.earPosition === 'top-center' ? 49 : 30
+  // ハチワレ模様: 155deg/205deg（なだらかな角度）+ 35%/35.5%（シャープカット）
+  // --card-color CSS変数を外側ラッパーで定義し、耳のcurrentColorと完全同期させる
   const hachiwariStyle = {
     backgroundImage: [
-      `linear-gradient(135deg, ${category.color} ${pct}%, transparent ${pct}%)`,
-      `linear-gradient(225deg, ${category.color} ${pct}%, transparent ${pct}%)`,
+      `linear-gradient(155deg, var(--card-color) 35%, transparent 35.5%)`,
+      `linear-gradient(205deg, var(--card-color) 35%, transparent 35.5%)`,
     ].join(', '),
     backgroundColor: '#ffffff',
   }
 
   return (
-    <div className="relative pt-5">
+    <div className="relative pt-5" style={{ '--card-color': category.color }}>
       {/* 耳はカードの外側に絶対配置 → カードのoverflow-hiddenに影響しない */}
       <CatEarsDecor position={category.earPosition} color={category.color} />
 
