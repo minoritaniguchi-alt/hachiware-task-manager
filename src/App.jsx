@@ -159,13 +159,12 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
   const [input, setInput] = useState('')
   const handleAdd = () => { const v = input.trim(); if (!v) return; onAdd(category.id, v); setInput('') }
 
-  // ハチワレ模様: 155deg/205deg（なだらかな角度）+ 42%/42.5%（シャープカット）
-  // --card-color CSS変数を外側ラッパーで定義し、耳のcurrentColorと完全同期させる
-  // 耳サイズ96x34に合わせてV字底辺が耳付け根（カード上から約16px）に揃うよう調整
+  // ハチワレ模様: 固定角度 160deg / 200deg、中央 40%〜60% を白で固定
+  // --card-color CSS変数を外側ラッパーで定義し、耳の currentColor と完全同期
   const hachiwariStyle = {
     backgroundImage: [
-      `linear-gradient(155deg, var(--card-color) 42%, transparent 42.5%)`,
-      `linear-gradient(205deg, var(--card-color) 42%, transparent 42.5%)`,
+      `linear-gradient(160deg, var(--card-color) 40%, transparent 40%)`,
+      `linear-gradient(200deg, var(--card-color) 40%, transparent 40%)`,
     ].join(', '),
     backgroundColor: '#ffffff',
   }
