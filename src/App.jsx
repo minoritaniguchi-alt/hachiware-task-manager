@@ -57,7 +57,7 @@ function CatEarsDecor({ color, position }) {
   return (
     // style={{ color }} → fill="currentColor" が参照 → CSS変数と完全同期
     <div className={`pointer-events-none ${posClass}`} aria-hidden="true" style={{ color }}>
-      <svg width="72" height="26" viewBox="0 0 54 18">
+      <svg width="96" height="34" viewBox="0 0 54 18">
         <path d="M0 18 L4 8 Q12 -4 20 8 L24 18 Z" fill="currentColor" />
         <path d="M30 18 L34 8 Q42 -4 50 8 L54 18 Z" fill="currentColor" />
       </svg>
@@ -159,12 +159,13 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
   const [input, setInput] = useState('')
   const handleAdd = () => { const v = input.trim(); if (!v) return; onAdd(category.id, v); setInput('') }
 
-  // ハチワレ模様: 155deg/205deg（なだらかな角度）+ 35%/35.5%（シャープカット）
+  // ハチワレ模様: 155deg/205deg（なだらかな角度）+ 42%/42.5%（シャープカット）
   // --card-color CSS変数を外側ラッパーで定義し、耳のcurrentColorと完全同期させる
+  // 耳サイズ96x34に合わせてV字底辺が耳付け根（カード上から約16px）に揃うよう調整
   const hachiwariStyle = {
     backgroundImage: [
-      `linear-gradient(155deg, var(--card-color) 35%, transparent 35.5%)`,
-      `linear-gradient(205deg, var(--card-color) 35%, transparent 35.5%)`,
+      `linear-gradient(155deg, var(--card-color) 42%, transparent 42.5%)`,
+      `linear-gradient(205deg, var(--card-color) 42%, transparent 42.5%)`,
     ].join(', '),
     backgroundColor: '#ffffff',
   }
