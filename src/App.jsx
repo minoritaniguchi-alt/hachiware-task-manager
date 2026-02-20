@@ -836,6 +836,15 @@ export default function App() {
           )}
         </section>
 
+        {/* 猫マスコット */}
+        <div className="flex justify-center -my-3">
+          <img
+            src={catLogo}
+            alt=""
+            className="w-16 h-16 rounded-2xl object-cover shadow-[0_4px_20px_rgba(162,194,208,0.35)]"
+          />
+        </div>
+
         {/* タスク入力 */}
         <section><TaskInputForm onAdd={addTask} /></section>
 
