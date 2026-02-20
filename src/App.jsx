@@ -13,11 +13,11 @@ const DASHBOARD_KEY = 'hachiware-dashboard-v1'
 const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbzdBCwRfaW31oVqhOuvOP9VGQSQL7JI_FL7GQ7A81JAELSPdxNI_5W5_q5UpbIcBF2xXA/exec'
 
 const STATUS_CONFIG = {
-  doing:   { label: '💨 やってる！',   color: 'text-[#5AAAC5] bg-[#E8F4F9] border-[#A2D4E8]', dot: 'bg-[#5AAAC5]' },
-  review:  { label: '💭 どうかな⋯？', color: 'text-[#9B7EC8] bg-[#F0EBF8] border-[#C9B8E8]', dot: 'bg-[#9B7EC8]' },
-  pause:   { label: '☕️ ふぅ⋯',       color: 'text-[#C4962A] bg-[#FBF5E6] border-[#E8D5A0]', dot: 'bg-[#C4962A]' },
-  waiting: { label: '🐾 まってる⋯',   color: 'text-[#6A9E85] bg-[#EBF3EE] border-[#AACFBC]', dot: 'bg-[#6A9E85]' },
-  done:    { label: '✨ できたッ！',   color: 'text-[#4A9E68] bg-[#EAF6EF] border-[#8FCCA5]', dot: 'bg-[#4A9E68]' },
+  doing:   { label: '💨 やってる！',   color: 'text-[#1E8CB8] bg-[#E5F6FF] border-[#90D4F5]', dot: 'bg-[#1E8CB8]' },
+  review:  { label: '💭 どうかな⋯？', color: 'text-[#7968C0] bg-[#F0ECFF] border-[#C8B8F0]', dot: 'bg-[#7968C0]' },
+  pause:   { label: '☕️ ふぅ⋯',       color: 'text-[#967050] bg-[#F7EFE8] border-[#D8BEA8]', dot: 'bg-[#967050]' },
+  waiting: { label: '🐾 まってる⋯',   color: 'text-[#A89030] bg-[#FEFCE8] border-[#ECD870]', dot: 'bg-[#A89030]' },
+  done:    { label: '✨ できたッ！',   color: 'text-[#C87800] bg-[#FFF9D8] border-[#F0D050]', dot: 'bg-[#C87800]' },
 }
 const STATUS_ORDER = ['doing', 'review', 'pause', 'waiting', 'done']
 
