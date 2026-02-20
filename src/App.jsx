@@ -57,7 +57,7 @@ function CatEarsDecor({ color, position }) {
   return (
     // style={{ color }} → fill="currentColor" が参照 → CSS変数と完全同期
     <div className={`pointer-events-none ${posClass}`} aria-hidden="true" style={{ color }}>
-      <svg width="144" height="51" viewBox="0 0 54 18">
+      <svg width="192" height="68" viewBox="0 0 54 18">
         <path d="M0 18 L4 8 Q12 -4 20 8 L24 18 Z" fill="currentColor" />
         <path d="M30 18 L34 8 Q42 -4 50 8 L54 18 Z" fill="currentColor" />
       </svg>
@@ -160,14 +160,14 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
   const handleAdd = () => { const v = input.trim(); if (!v) return; onAdd(category.id, v); setInput('') }
 
   return (
-    <div className="relative pt-10">
+    <div className="relative pt-14">
       {/* 耳はカードの外側に絶対配置 → カードのoverflow-hiddenに影響しない */}
       <CatEarsDecor position={category.earPosition} color={category.color} />
 
       <div className={`rounded-3xl border-2 ${category.borderColor} overflow-hidden`}>
         {/* 単色ヘッダー（耳の色と同色） */}
         <button onClick={() => setOpen(v => !v)} className="w-full">
-          <div className="flex items-end justify-between px-4 pb-3 pt-3" style={{ backgroundColor: category.color, minHeight: 62 }}>
+          <div className="flex items-end justify-between px-4 pb-2 pt-2" style={{ backgroundColor: category.color, minHeight: 50 }}>
             <div className="flex items-center gap-2 font-semibold text-gray-700 text-sm">
               <span className="text-base">{category.emoji}</span>
               {category.label}
