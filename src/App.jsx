@@ -4,6 +4,7 @@ import {
   Clock, PauseCircle, Eye, Timer, Archive, RotateCcw,
   Pencil, X, Link as LinkIcon, Cloud, CloudOff
 } from 'lucide-react'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 import catLogo from './assets/cat_Image.png'
 import './index.css'
 
@@ -993,6 +994,7 @@ export default function App() {
       )}
 
       {toast && <Toast msg={toast} onDone={() => setToast(null)} />}
+      <SpeedInsights />
     </div>
   )
 }
