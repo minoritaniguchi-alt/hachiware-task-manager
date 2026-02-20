@@ -157,15 +157,23 @@ function Toast({ msg, onDone }) {
 function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
   const [open, setOpen] = useState(true)
   const [input, setInput] = useState('')
-  const handleAdd = () => { const v = input.trim(); if (!v) return; onAdd(category.id, v); setInput('') }
+  const [details, setDetails] = useState('')
+  const [links, setLinks] = useState([])
+  const [formExpanded, setFormExpanded] = useState(false)
+
+  const handleAdd = () => {
+    const v = input.trim()
+    if (!v) return
+    onAdd(category.id, v, details.trim(), links)
+    setInput(''); setDetails(''); setLinks([]); setFormExpanded(false)
+  }
 
   return (
     <div className="relative pt-14">
-      {/* 耳はカードの外側に絶対配置 → カードのoverflow-hiddenに影響しない */}
       <CatEarsDecor position={category.earPosition} color={category.color} />
 
       <div className={`rounded-3xl border-2 ${category.borderColor} overflow-hidden`}>
-        {/* 単色ヘッダー（耳の色と同色） */}
+        {/* 単色ヘッダー */}
         <button onClick={() => setOpen(v => !v)} className="w-full">
           <div className="flex items-end justify-between px-4 pb-2 pt-2" style={{ backgroundColor: category.color, minHeight: 50 }}>
             <div className="flex items-center gap-2 font-semibold text-gray-700 text-sm">
@@ -182,21 +190,58 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
           </div>
         </button>
 
-        {/* コンテンツ（白背景・視認性優先） */}
         {open && (
           <div className="bg-white px-4 pt-3 pb-4 flex flex-col gap-2">
+
+            {/* 業務名 */}
             <div className="flex gap-2">
               <input
                 type="text" value={input}
                 onChange={e => setInput(e.target.value)}
+                onFocus={() => setFormExpanded(true)}
                 onKeyDown={e => e.key === 'Enter' && handleAdd()}
-                placeholder="追加する..."
+                placeholder="業務名を入力..."
                 className="flex-1 text-sm px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/40 placeholder-gray-400"
               />
-              <button onClick={handleAdd} className="p-1.5 rounded-lg bg-gray-100 hover:bg-[#A2C2D0]/20 text-[#7AAABB] transition-colors">
+              <button onClick={handleAdd} disabled={!input.trim()} className="p-1.5 rounded-lg bg-gray-100 hover:bg-[#A2C2D0]/20 text-[#7AAABB] disabled:opacity-40 transition-colors flex-shrink-0">
                 <Plus size={16} />
               </button>
             </div>
+
+            {/* 業務詳細・リンク（フォーカス時展開） */}
+            {formExpanded && (
+              <div className="flex flex-col gap-2 animate-[fade-in_0.2s_ease-out] border border-gray-100 rounded-xl p-2.5 bg-gray-50/60">
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">業務詳細</label>
+                  <textarea
+                    value={details} onChange={e => setDetails(e.target.value)}
+                    placeholder="詳細・メモ（任意）" rows={2}
+                    className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#A2C2D0]/40 placeholder-gray-400 resize-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">リンク</label>
+                  {links.map(link => (
+                    <div key={link.id} className="flex items-center gap-1.5 mb-1 px-2 py-1 bg-white rounded-lg border border-gray-100">
+                      <LinkSvgIcon size={10} className="text-[#5AAAC5] flex-shrink-0" />
+                      <span className="text-xs text-gray-600 flex-1 truncate">{link.title || link.url}</span>
+                      <button type="button" onClick={() => setLinks(prev => prev.filter(l => l.id !== link.id))} className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0">
+                        <X size={11} />
+                      </button>
+                    </div>
+                  ))}
+                  <LinkInputRow onAdd={link => setLinks(prev => [...prev, link])} />
+                </div>
+                <div className="flex justify-end">
+                  <button type="button"
+                    onClick={() => { setFormExpanded(false); setDetails(''); setLinks([]) }}
+                    className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                    閉じる
+                  </button>
+                </div>
+              </div>
+            )}
+
             {items.length === 0 && <p className="text-xs text-gray-400 text-center py-1">項目なし</p>}
             {items.map(item => (
               <div key={item.id}
@@ -204,6 +249,9 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
                 onClick={() => onEdit(item, category.id)}>
                 <div className="flex-1 min-w-0">
                   <span className="text-sm text-gray-700 leading-snug">{item.text}</span>
+                  {item.details && (
+                    <p className="text-xs text-gray-500 mt-0.5 leading-snug whitespace-pre-line">{item.details}</p>
+                  )}
                   {item.links?.length > 0 && (
                     <div className="flex flex-col gap-0.5 mt-1">
                       {item.links.map(link => (
@@ -444,6 +492,7 @@ function TaskInputForm({ onAdd }) {
   const [links, setLinks]       = useState([])
   const [expanded, setExpanded] = useState(false)
   const inputRef = useRef(null)
+  const suppressExpand = useRef(false)
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -452,7 +501,9 @@ function TaskInputForm({ onAdd }) {
     onAdd({ title: v, details: details.trim(), memo: memo.trim(), status, priority, dueDate, links })
     setTitle(''); setDetails(''); setMemo(''); setStatus('doing')
     setPriority('medium'); setDueDate(''); setLinks([]); setExpanded(false)
+    suppressExpand.current = true
     inputRef.current?.focus()
+    setTimeout(() => { suppressExpand.current = false }, 100)
   }
 
   return (
@@ -460,7 +511,8 @@ function TaskInputForm({ onAdd }) {
       style={{ background: 'linear-gradient(135deg, rgba(162,194,208,0.07) 0%, rgba(242,203,201,0.07) 100%)' }}>
       <form onSubmit={handleSubmit}>
         <div className="flex gap-3 items-center">
-          <input ref={inputRef} type="text" value={title} onChange={e => setTitle(e.target.value)} onFocus={() => setExpanded(true)}
+          <input ref={inputRef} type="text" value={title} onChange={e => setTitle(e.target.value)}
+            onFocus={() => { if (!suppressExpand.current) setExpanded(true) }}
             placeholder="新しいタスクを入力"
             className="flex-1 text-sm font-medium px-4 py-2.5 rounded-xl border-2 border-[#A2C2D0]/25 bg-white/80 focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/40 focus:border-[#A2C2D0]/50 placeholder-gray-400 transition-all"
           />
@@ -719,8 +771,8 @@ export default function App() {
 
   const deleteTask = (id) => setTasks(prev => prev.filter(t => t.id !== id))
 
-  const addDashboardItem = (catId, text) =>
-    setDashboard(prev => ({ ...prev, [catId]: [...(prev[catId] || []), { id: Date.now().toString(), text, details: '', memo: '', links: [] }] }))
+  const addDashboardItem = (catId, text, details = '', links = []) =>
+    setDashboard(prev => ({ ...prev, [catId]: [...(prev[catId] || []), { id: Date.now().toString(), text, details, memo: '', links }] }))
   const deleteDashboardItem = (catId, itemId) =>
     setDashboard(prev => ({ ...prev, [catId]: (prev[catId] || []).filter(i => i.id !== itemId) }))
   const updateDashboardItem = (catId, itemId, fields) => {
