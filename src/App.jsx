@@ -110,7 +110,6 @@ function StatusBadge({ status, onChange }) {
         onClick={openDropdown}
         className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border cursor-pointer select-none transition-all duration-150 ${cfg.color} hover:opacity-80`}
       >
-        <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
         {cfg.label}
         <ChevronDown size={10} />
       </button>
@@ -128,7 +127,6 @@ function StatusBadge({ status, onChange }) {
                 onClick={() => { onChange(s); setOpen(false) }}
                 className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border cursor-pointer w-full ${c.color} hover:opacity-80 ${s === status ? 'ring-1 ring-offset-1 ring-current' : ''}`}
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
                 {c.label}
               </button>
             )
