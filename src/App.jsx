@@ -21,12 +21,6 @@ const STATUS_CONFIG = {
 }
 const STATUS_ORDER = ['doing', 'review', 'pause', 'waiting', 'done']
 
-const PRIORITY_CONFIG = {
-  high:   { label: '高', color: 'text-[#E5807A] bg-[#FDF0EF]', emoji: '🔴' },
-  medium: { label: '中', color: 'text-[#D4A84B] bg-[#FDF7EC]', emoji: '🟡' },
-  low:    { label: '低', color: 'text-[#6A9E85] bg-[#EBF3EE]', emoji: '🟢' },
-}
-
 const DASHBOARD_CATEGORIES = [
   { id: 'routine',  label: 'ルーチン業務', emoji: '🍜', borderColor: 'border-[#A2C2D0]', bgColor: 'from-[#A2C2D0]/10 to-[#A2C2D0]/5', color: '#A2C2D0', earPosition: 'top-left' },
   { id: 'adhoc',   label: '臨時対応',     emoji: '📷', borderColor: 'border-[#F2CBC9]', bgColor: 'from-[#F2CBC9]/10 to-[#F2CBC9]/5', color: '#F2CBC9', earPosition: 'top-center' },
@@ -42,7 +36,7 @@ const TOAST_MSGS = { add: 'タスクを追加しました', done: '完了しま�
  *   details: string,    // タスク詳細（複数行）
  *   memo: string,       // 進捗メモ（スプレッドシートの「備考」列相当）
  *   links: [{id, url, title}],  // 関連資料リンク（複数）
- *   status, priority, dueDate,
+ *   status, dueDate,
  *   createdAt, completedAt
  * }
  */
@@ -299,7 +293,6 @@ function LinkSvgIcon({ size = 12, className = '' }) {
 // ─── TaskRow ─────────────────────────────────────────────
 function TaskRow({ task, onStatusChange, onDelete, onToggleDone, onEdit }) {
   const isDone = task.status === 'done'
-  const priorityCfg = PRIORITY_CONFIG[task.priority || 'medium']
   const links = task.links || []
 
   return (
@@ -320,9 +313,6 @@ function TaskRow({ task, onStatusChange, onDelete, onToggleDone, onEdit }) {
         {/* バッジ行 */}
         <div className="flex items-center gap-2 flex-wrap">
           <StatusBadge status={task.status} onChange={s => onStatusChange(task.id, s)} />
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${priorityCfg.color}`}>
-            {priorityCfg.emoji} {priorityCfg.label}
-          </span>
           {task.dueDate && <span className="text-xs text-gray-400">📅 {task.dueDate}</span>}
         </div>
 
@@ -483,7 +473,6 @@ function TaskInputForm({ onAdd }) {
   const [details, setDetails]   = useState('')
   const [memo, setMemo]         = useState('')
   const [status, setStatus]     = useState('doing')
-  const [priority, setPriority] = useState('medium')
   const [dueDate, setDueDate]   = useState('')
   const [links, setLinks]       = useState([])
   const [open, setOpen]         = useState(true)
@@ -495,9 +484,9 @@ function TaskInputForm({ onAdd }) {
     e.preventDefault()
     const v = title.trim()
     if (!v) return
-    onAdd({ title: v, details: details.trim(), memo: memo.trim(), status, priority, dueDate, links })
+    onAdd({ title: v, details: details.trim(), memo: memo.trim(), status, dueDate, links })
     setTitle(''); setDetails(''); setMemo(''); setStatus('doing')
-    setPriority('medium'); setDueDate(''); setLinks([]); setExpanded(false)
+    setDueDate(''); setLinks([]); setExpanded(false)
     suppressExpand.current = true
     inputRef.current?.focus()
     setTimeout(() => { suppressExpand.current = false }, 100)
@@ -565,22 +554,11 @@ function TaskInputForm({ onAdd }) {
                   <LinkInputRow onAdd={link => setLinks(prev => [...prev, link])} />
                 </div>
 
-                {/* ステータス・優先度・期限 */}
+                {/* ステータス・期限 */}
                 <div className="flex gap-x-4 gap-y-2 flex-wrap items-center pt-1 border-t border-gray-100">
                   <div className="flex items-center gap-1.5 text-xs text-gray-500">
                     <span className="font-medium">ステータス</span>
                     <StatusBadge status={status} onChange={setStatus} />
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                    <span className="font-medium">優先度</span>
-                    <div className="flex gap-1">
-                      {Object.entries(PRIORITY_CONFIG).map(([k, cfg]) => (
-                        <button key={k} type="button" onClick={() => setPriority(k)}
-                          className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${cfg.color} ${priority === k ? 'ring-2 ring-offset-1 ring-current' : 'opacity-50 hover:opacity-80'}`}>
-                          {cfg.emoji} {cfg.label}
-                        </button>
-                      ))}
-                    </div>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-gray-500 ml-auto">
                     <span className="font-medium">期限</span>
@@ -604,13 +582,12 @@ function TaskEditModal({ task, onSave, onClose }) {
   const [details, setDetails]   = useState(task.details || '')
   const [memo, setMemo]         = useState(task.memo || '')
   const [status, setStatus]     = useState(task.status || 'doing')
-  const [priority, setPriority] = useState(task.priority || 'medium')
   const [dueDate, setDueDate]   = useState(task.dueDate || '')
   const [links, setLinks]       = useState(task.links || [])
 
   const handleSave = () => {
     if (!title.trim()) return
-    onSave(task.id, { title: title.trim(), details: details.trim(), memo: memo.trim(), status, priority, dueDate, links })
+    onSave(task.id, { title: title.trim(), details: details.trim(), memo: memo.trim(), status, dueDate, links })
     onClose()
   }
 
@@ -657,22 +634,11 @@ function TaskEditModal({ task, onSave, onClose }) {
               className="w-full text-sm px-4 py-2.5 rounded-xl border border-[#A2C2D0]/20 bg-white focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/30 placeholder-gray-400 resize-none" />
           </div>
 
-          {/* ステータス + 優先度 + 期限 */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* ステータス + 期限 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">ステータス</label>
               <StatusBadge status={status} onChange={setStatus} />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">優先度</label>
-              <div className="flex gap-1 flex-wrap">
-                {Object.entries(PRIORITY_CONFIG).map(([k, cfg]) => (
-                  <button key={k} type="button" onClick={() => setPriority(k)}
-                    className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${cfg.color} ${priority === k ? 'ring-2 ring-offset-1 ring-current' : 'opacity-50 hover:opacity-80'}`}>
-                    {cfg.emoji} {cfg.label}
-                  </button>
-                ))}
-              </div>
             </div>
             <div>
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">期限</label>
@@ -808,7 +774,7 @@ export default function App() {
     setTasks(prev => [{
       id: Date.now().toString(),
       title: fields.title, details: fields.details || '', memo: fields.memo || '',
-      status: fields.status, priority: fields.priority, dueDate: fields.dueDate || '',
+      status: fields.status, dueDate: fields.dueDate || '',
       links: fields.links || [],
       createdAt: new Date().toISOString(), completedAt: null,
     }, ...prev])
