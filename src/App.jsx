@@ -89,14 +89,6 @@ function StatusBadge({ status, onChange }) {
     setOpen(true)
   }
 
-  // 外クリックで閉じる
-  useEffect(() => {
-    if (!open) return
-    const close = () => setOpen(false)
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [open])
-
   return (
     <>
       <button
@@ -108,24 +100,27 @@ function StatusBadge({ status, onChange }) {
         <ChevronDown size={10} />
       </button>
       {open && (
-        <div
-          className="fixed z-[9999] bg-white rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-[#A2C2D0]/20 p-1.5 flex flex-col gap-0.5 min-w-[110px]"
-          style={{ top: dropPos.top, left: dropPos.left }}
-          onMouseDown={e => e.stopPropagation()}
-        >
-          {STATUS_ORDER.map(s => {
-            const c = STATUS_CONFIG[s]
-            return (
-              <button
-                key={s}
-                onClick={() => { onChange(s); setOpen(false) }}
-                className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border cursor-pointer w-full ${c.color} hover:opacity-80 ${s === status ? 'ring-1 ring-offset-1 ring-current' : ''}`}
-              >
-                {c.label}
-              </button>
-            )
-          })}
-        </div>
+        <>
+          {/* バックドロップ：外クリックで確実に閉じる */}
+          <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} />
+          <div
+            className="fixed z-[9999] bg-white rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-[#A2C2D0]/20 p-1.5 flex flex-col gap-0.5 min-w-[110px]"
+            style={{ top: dropPos.top, left: dropPos.left }}
+          >
+            {STATUS_ORDER.map(s => {
+              const c = STATUS_CONFIG[s]
+              return (
+                <button
+                  key={s}
+                  onClick={() => { onChange(s); setOpen(false) }}
+                  className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border cursor-pointer w-full ${c.color} hover:opacity-80 ${s === status ? 'ring-1 ring-offset-1 ring-current' : ''}`}
+                >
+                  {c.label}
+                </button>
+              )
+            })}
+          </div>
+        </>
       )}
     </>
   )
@@ -890,7 +885,7 @@ export default function App() {
               <button onClick={() => setTasksOpen(v => !v)} className="w-full">
                 <div className="flex items-end justify-between px-4 pb-2 pt-2" style={{ backgroundColor: '#C4BAD8', minHeight: 64 }}>
                   <div className="flex items-center gap-2 font-semibold text-gray-700 text-sm">
-                    <img src={catLogo} alt="" className="w-5 h-5 object-contain" />
+                    <span className="text-base">✔</span>
                     タスク
                     <span className="text-xs font-normal bg-white/70 px-2 py-0.5 rounded-full text-gray-500">
                       {filteredActive.length}件
