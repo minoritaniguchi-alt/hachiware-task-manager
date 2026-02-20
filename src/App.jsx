@@ -57,7 +57,7 @@ function CatEarsDecor({ color, position }) {
   return (
     // style={{ color }} → fill="currentColor" が参照 → CSS変数と完全同期
     <div className={`pointer-events-none ${posClass}`} aria-hidden="true" style={{ color }}>
-      <svg width="136" height="48" viewBox="0 0 54 18">
+      <svg width="116" height="41" viewBox="0 0 54 18">
         <path d="M0 18 L4 8 Q12 -4 20 8 L24 18 Z" fill="currentColor" />
         <path d="M30 18 L34 8 Q42 -4 50 8 L54 18 Z" fill="currentColor" />
       </svg>
