@@ -159,25 +159,15 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
   const [input, setInput] = useState('')
   const handleAdd = () => { const v = input.trim(); if (!v) return; onAdd(category.id, v); setInput('') }
 
-  // ハチワレ模様: 固定角度 160deg / 200deg、中央 40%〜60% を白で固定
-  // --card-color CSS変数を外側ラッパーで定義し、耳の currentColor と完全同期
-  const hachiwariStyle = {
-    backgroundImage: [
-      `linear-gradient(160deg, var(--card-color) 40%, transparent 40%)`,
-      `linear-gradient(200deg, var(--card-color) 40%, transparent 40%)`,
-    ].join(', '),
-    backgroundColor: '#ffffff',
-  }
-
   return (
-    <div className="relative pt-5" style={{ '--card-color': category.color }}>
+    <div className="relative pt-5">
       {/* 耳はカードの外側に絶対配置 → カードのoverflow-hiddenに影響しない */}
       <CatEarsDecor position={category.earPosition} color={category.color} />
 
       <div className={`rounded-3xl border-2 ${category.borderColor} overflow-hidden`}>
-        {/* ハチワレ模様ヘッダー */}
+        {/* 単色ヘッダー（耳の色と同色） */}
         <button onClick={() => setOpen(v => !v)} className="w-full">
-          <div className="flex items-end justify-between px-4 pb-3 pt-3" style={{ ...hachiwariStyle, minHeight: 62 }}>
+          <div className="flex items-end justify-between px-4 pb-3 pt-3" style={{ backgroundColor: category.color, minHeight: 62 }}>
             <div className="flex items-center gap-2 font-semibold text-gray-700 text-sm">
               <span className="text-base">{category.emoji}</span>
               {category.label}
