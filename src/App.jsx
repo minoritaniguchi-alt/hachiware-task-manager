@@ -160,14 +160,14 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
   const handleAdd = () => { const v = input.trim(); if (!v) return; onAdd(category.id, v); setInput('') }
 
   return (
-    <div className="relative pt-5">
+    <div className="relative pt-10">
       {/* 耳はカードの外側に絶対配置 → カードのoverflow-hiddenに影響しない */}
       <CatEarsDecor position={category.earPosition} color={category.color} />
 
       <div className={`rounded-3xl border-2 ${category.borderColor} overflow-hidden`}>
         {/* 単色ヘッダー（耳の色と同色） */}
         <button onClick={() => setOpen(v => !v)} className="w-full">
-          <div className="flex items-end justify-between px-4 pb-3 pt-3" style={{ backgroundColor: category.color, minHeight: 80 }}>
+          <div className="flex items-end justify-between px-4 pb-3 pt-3" style={{ backgroundColor: category.color, minHeight: 62 }}>
             <div className="flex items-center gap-2 font-semibold text-gray-700 text-sm">
               <span className="text-base">{category.emoji}</span>
               {category.label}
