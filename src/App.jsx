@@ -160,7 +160,7 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
   const handleAdd = () => { const v = input.trim(); if (!v) return; onAdd(category.id, v); setInput('') }
 
   return (
-    <div className="relative pt-1">
+    <div className="relative pt-5">
       {/* 耳はカードの外側に絶対配置 → カードのoverflow-hiddenに影響しない */}
       <CatEarsDecor position={category.earPosition} color={category.color} />
 
