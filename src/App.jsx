@@ -167,7 +167,7 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
       <div className={`rounded-3xl border-2 ${category.borderColor} overflow-hidden`}>
         {/* 単色ヘッダー（耳の色と同色） */}
         <button onClick={() => setOpen(v => !v)} className="w-full">
-          <div className="flex items-end justify-between px-4 pb-3 pt-3" style={{ backgroundColor: category.color, minHeight: 62 }}>
+          <div className="flex items-end justify-between px-4 pb-3 pt-3" style={{ backgroundColor: category.color, minHeight: 80 }}>
             <div className="flex items-center gap-2 font-semibold text-gray-700 text-sm">
               <span className="text-base">{category.emoji}</span>
               {category.label}
