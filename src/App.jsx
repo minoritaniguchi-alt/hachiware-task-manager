@@ -169,7 +169,7 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
   }
 
   return (
-    <div className="relative pt-14">
+    <div className="relative pt-9">
       <CatEarsDecor position={category.earPosition} color={category.color} />
 
       <div className={`rounded-3xl border-2 ${category.borderColor} overflow-hidden`}>
