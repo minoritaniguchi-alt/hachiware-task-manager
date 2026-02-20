@@ -719,6 +719,7 @@ export default function App() {
     try { return JSON.parse(localStorage.getItem(DASHBOARD_KEY) ?? 'null') ?? { routine: [], adhoc: [], schedule: [] } } catch { return { routine: [], adhoc: [], schedule: [] } }
   })
   const [dashboardOpen, setDashboardOpen] = useState(true)
+  const [tasksOpen, setTasksOpen]         = useState(true)
   const [archiveOpen, setArchiveOpen]     = useState(false)
   const [toast, setToast]                 = useState(null)
   const [filter, setFilter]               = useState('all')
@@ -881,37 +882,54 @@ export default function App() {
 
         {/* アクティブタスク */}
         <section>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <img src={catLogo} alt="" className="w-5 h-5 object-contain" />
-              <span className="text-xs font-semibold text-gray-500 tracking-widest uppercase">タスク</span>
-              <span className="text-xs text-gray-400 bg-[#F0EBE3] px-2 py-0.5 rounded-full">{filteredActive.length}</span>
-            </div>
-            <div className="flex items-center gap-1 flex-wrap">
-              <button onClick={() => setFilter('all')} className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${filter === 'all' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-100'}`}>すべて</button>
-              {STATUS_ORDER.filter(s => s !== 'done').map(s => {
-                const cfg = STATUS_CONFIG[s]
-                const count = activeTasks.filter(t => t.status === s).length
-                return (
-                  <button key={s} onClick={() => setFilter(s)}
-                    className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${filter === s ? `${cfg.color} border` : 'text-gray-400 hover:bg-gray-50'}`}>
-                    {cfg.label}{count > 0 && ` ${count}`}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+          <div className="relative pt-9">
+            <CatEarsDecor position="top-left" color="#C4BAD8" />
+            <div className="rounded-3xl border-2 border-[#C4BAD8] overflow-hidden">
 
-          <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(162,194,208,0.18)] border border-[#A2C2D0]/20">
-            {filteredActive.length === 0 ? <EmptyState /> : (
-              <div className="flex flex-col divide-y divide-[#F5F0EB]">
-                {filteredActive.map(task => (
-                  <TaskRow key={task.id} task={task}
-                    onStatusChange={changeStatus} onDelete={deleteTask}
-                    onToggleDone={toggleDone} onEdit={setEditingTask} />
-                ))}
-              </div>
-            )}
+              {/* ヘッダー */}
+              <button onClick={() => setTasksOpen(v => !v)} className="w-full">
+                <div className="flex items-end justify-between px-4 pb-2 pt-2" style={{ backgroundColor: '#C4BAD8', minHeight: 64 }}>
+                  <div className="flex items-center gap-2 font-semibold text-gray-700 text-sm">
+                    <img src={catLogo} alt="" className="w-5 h-5 object-contain" />
+                    タスク
+                    <span className="text-xs font-normal bg-white/70 px-2 py-0.5 rounded-full text-gray-500">
+                      {filteredActive.length}件
+                    </span>
+                  </div>
+                  {tasksOpen ? <ChevronUp size={15} className="text-gray-500 flex-shrink-0" /> : <ChevronDown size={15} className="text-gray-500 flex-shrink-0" />}
+                </div>
+              </button>
+
+              {tasksOpen && (
+                <div className="bg-white">
+                  {/* フィルターボタン */}
+                  <div className="px-4 pt-3 pb-2 flex items-center gap-1 flex-wrap border-b border-[#F5F0EB]">
+                    <button onClick={() => setFilter('all')} className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${filter === 'all' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-100'}`}>すべて</button>
+                    {STATUS_ORDER.filter(s => s !== 'done').map(s => {
+                      const cfg = STATUS_CONFIG[s]
+                      const count = activeTasks.filter(t => t.status === s).length
+                      return (
+                        <button key={s} onClick={() => setFilter(s)}
+                          className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${filter === s ? `${cfg.color} border` : 'text-gray-400 hover:bg-gray-50'}`}>
+                          {cfg.label}{count > 0 && ` ${count}`}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {/* タスクリスト */}
+                  {filteredActive.length === 0 ? <EmptyState /> : (
+                    <div className="flex flex-col divide-y divide-[#F5F0EB]">
+                      {filteredActive.map(task => (
+                        <TaskRow key={task.id} task={task}
+                          onStatusChange={changeStatus} onDelete={deleteTask}
+                          onToggleDone={toggleDone} onEdit={setEditingTask} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </section>
 
