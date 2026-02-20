@@ -798,7 +798,7 @@ export default function App() {
         <div className="max-w-4xl mx-auto px-6 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3.5">
             <div className="relative">
-              <img src={catLogo} alt="Koto Note" className="w-10 h-10 rounded-2xl object-cover shadow-[0_2px_8px_rgba(162,194,208,0.30)]" />
+              <img src={catLogo} alt="Koto Note" className="w-10 h-10 object-contain" />
             </div>
             <div>
               <h1 className="font-bold text-gray-800 text-base leading-tight tracking-wide">Koto Note</h1>
@@ -822,7 +822,7 @@ export default function App() {
         <section>
           <button onClick={() => setDashboardOpen(v => !v)}
             className="flex items-center gap-2 text-xs font-semibold text-gray-500 hover:text-gray-700 mb-5 transition-colors tracking-widest uppercase">
-            <img src={catLogo} alt="" className="w-5 h-5 rounded-lg object-cover" />
+            <img src={catLogo} alt="" className="w-5 h-5 object-contain" />
             ダッシュボード
             <span className="text-gray-300">{dashboardOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}</span>
           </button>
@@ -844,7 +844,7 @@ export default function App() {
         <section>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <img src={catLogo} alt="" className="w-5 h-5 rounded-lg object-cover" />
+              <img src={catLogo} alt="" className="w-5 h-5 object-contain" />
               <span className="text-xs font-semibold text-gray-500 tracking-widest uppercase">タスク</span>
               <span className="text-xs text-gray-400 bg-[#F0EBE3] px-2 py-0.5 rounded-full">{filteredActive.length}</span>
             </div>
