@@ -822,6 +822,7 @@ export default function App() {
         <section>
           <button onClick={() => setDashboardOpen(v => !v)}
             className="flex items-center gap-2 text-xs font-semibold text-gray-500 hover:text-gray-700 mb-5 transition-colors tracking-widest uppercase">
+            <img src={catLogo} alt="" className="w-5 h-5 rounded-lg object-cover" />
             ダッシュボード
             <span className="text-gray-300">{dashboardOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}</span>
           </button>
@@ -836,15 +837,6 @@ export default function App() {
           )}
         </section>
 
-        {/* 猫マスコット */}
-        <div className="flex justify-center -my-3">
-          <img
-            src={catLogo}
-            alt=""
-            className="w-16 h-16 rounded-2xl object-cover shadow-[0_4px_20px_rgba(162,194,208,0.35)]"
-          />
-        </div>
-
         {/* タスク入力 */}
         <section><TaskInputForm onAdd={addTask} /></section>
 
@@ -852,6 +844,7 @@ export default function App() {
         <section>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
+              <img src={catLogo} alt="" className="w-5 h-5 rounded-lg object-cover" />
               <span className="text-xs font-semibold text-gray-500 tracking-widest uppercase">タスク</span>
               <span className="text-xs text-gray-400 bg-[#F0EBE3] px-2 py-0.5 rounded-full">{filteredActive.length}</span>
             </div>
