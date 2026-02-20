@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import {
   Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2,
   Clock, PauseCircle, Eye, Timer, Archive, RotateCcw,
-  Pencil, X, Link as LinkIcon
+  Pencil, X, Link as LinkIcon, Cloud, CloudOff
 } from 'lucide-react'
 import catLogo from './assets/cat_Image.png'
 import './index.css'
@@ -10,6 +10,7 @@ import './index.css'
 // ─── 定数 ───────────────────────────────────────────────
 const STORAGE_KEY   = 'hachiware-tasks-v1'
 const DASHBOARD_KEY = 'hachiware-dashboard-v1'
+const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbzdBCwRfaW31oVqhOuvOP9VGQSQL7JI_FL7GQ7A81JAELSPdxNI_5W5_q5UpbIcBF2xXA/exec'
 
 const STATUS_CONFIG = {
   doing:   { label: 'Doing',   color: 'text-[#5AAAC5] bg-[#E8F4F9] border-[#A2D4E8]', dot: 'bg-[#5AAAC5]' },
@@ -66,16 +67,13 @@ function CatEarsDecor({ color, position }) {
 }
 
 
-function EarCheckbox({ isDone, onClick }) {
+function DoneToggle({ isDone, onClick }) {
   return (
-    <button onClick={onClick} className="mt-1 flex-shrink-0 transition-transform duration-150 hover:scale-110 active:scale-95" title={isDone ? 'リストに戻す' : '完了にする'}>
-      <svg width="22" height="15" viewBox="0 0 30 16" fill="none">
-        {isDone ? (
-          <><path d="M1 15 L8 1 L15 15 Z" fill="#4A9E68" /><path d="M15 15 L22 1 L29 15 Z" fill="#4A9E68" /></>
-        ) : (
-          <><path d="M1 15 L8 1 L15 15" stroke="#A2C2D0" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" /><path d="M15 15 L22 1 L29 15" stroke="#A2C2D0" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" /></>
-        )}
-      </svg>
+    <button onClick={onClick} className="mt-0.5 flex-shrink-0 transition-all duration-150 hover:scale-110 active:scale-95" title={isDone ? 'リストに戻す' : '完了にする'}>
+      {isDone
+        ? <CheckCircle2 size={18} className="text-[#4A9E68]" />
+        : <div className="w-[18px] h-[18px] rounded-full border-2 border-[#A2C2D0] hover:border-[#4A9E68] transition-colors" />
+      }
     </button>
   )
 }
@@ -308,7 +306,7 @@ function TaskRow({ task, onStatusChange, onDelete, onToggleDone, onEdit }) {
 
   return (
     <div className={`flex items-start gap-3 px-4 py-3.5 transition-all duration-200 hover:bg-[#FAF7F2]/70 group ${isDone ? 'opacity-50' : ''}`}>
-      <EarCheckbox isDone={isDone} onClick={() => onToggleDone(task.id, isDone)} />
+      <DoneToggle isDone={isDone} onClick={() => onToggleDone(task.id, isDone)} />
 
       <div className="flex-1 min-w-0 flex flex-col gap-1.5">
         {/* タイトル */}
@@ -490,6 +488,7 @@ function TaskInputForm({ onAdd }) {
   const [priority, setPriority] = useState('medium')
   const [dueDate, setDueDate]   = useState('')
   const [links, setLinks]       = useState([])
+  const [open, setOpen]         = useState(true)
   const [expanded, setExpanded] = useState(false)
   const inputRef = useRef(null)
   const suppressExpand = useRef(false)
@@ -507,82 +506,96 @@ function TaskInputForm({ onAdd }) {
   }
 
   return (
-    <div className="relative bg-white rounded-2xl shadow-[0_4px_20px_rgba(162,194,208,0.20)] border-2 border-[#A2C2D0]/30 p-5"
-      style={{ background: 'linear-gradient(135deg, rgba(162,194,208,0.07) 0%, rgba(242,203,201,0.07) 100%)' }}>
-      <form onSubmit={handleSubmit}>
-        <div className="flex gap-3 items-center">
-          <input ref={inputRef} type="text" value={title} onChange={e => setTitle(e.target.value)}
-            onFocus={() => { if (!suppressExpand.current) setExpanded(true) }}
-            placeholder="新しいタスクを入力"
-            className="flex-1 text-sm font-medium px-4 py-2.5 rounded-xl border-2 border-[#A2C2D0]/25 bg-white/80 focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/40 focus:border-[#A2C2D0]/50 placeholder-gray-400 transition-all"
-          />
-          <button type="submit" disabled={!title.trim()}
-            className="px-4 py-2.5 rounded-xl font-medium transition-all duration-200 active:scale-95 bg-[#A2C2D0] text-white hover:bg-[#7AAABB] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 text-sm flex-shrink-0">
-            <Plus size={16} />追加
-          </button>
-        </div>
+    <div className="relative pt-9">
+      <CatEarsDecor position="top-center" color="#A2C2D0" />
+      <div className="rounded-3xl border-2 border-[#A2C2D0] overflow-hidden">
 
-        {expanded && (
-          <div className="mt-4 flex flex-col gap-3 animate-[fade-in_0.3s_ease-out]">
-            {/* 詳細 */}
-            <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1">詳細</label>
-              <textarea value={details} onChange={e => setDetails(e.target.value)} placeholder="タスクの詳細（任意）" rows={2}
-                className="w-full text-sm px-3 py-2 rounded-xl border border-[#A2C2D0]/20 bg-white/80 focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/30 placeholder-gray-400 resize-none" />
+        {/* ヘッダー */}
+        <button onClick={() => { setOpen(v => !v); if (open) setExpanded(false) }} className="w-full">
+          <div className="flex items-end justify-between px-4 pb-2 pt-2" style={{ backgroundColor: '#A2C2D0', minHeight: 64 }}>
+            <div className="flex items-center gap-2 font-semibold text-gray-700 text-sm">
+              <span className="text-base">✏️</span>
+              タスクを追加
             </div>
-
-            {/* 進捗メモ */}
-            <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1">進捗メモ</label>
-              <textarea value={memo} onChange={e => setMemo(e.target.value)} placeholder="備考・進捗状況（任意）" rows={2}
-                className="w-full text-sm px-3 py-2 rounded-xl border border-[#A2C2D0]/20 bg-white/80 focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/30 placeholder-gray-400 resize-none" />
-            </div>
-
-            {/* 関連リンク */}
-            <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1.5">関連リンク</label>
-              {links.map(link => (
-                <div key={link.id} className="flex items-center gap-2 mb-1.5 px-2 py-1 bg-white/70 rounded-lg border border-[#A2C2D0]/15">
-                  <LinkSvgIcon size={11} className="text-[#5AAAC5] flex-shrink-0" />
-                  <span className="text-xs text-gray-600 flex-1 truncate">{link.title}</span>
-                  <button type="button" onClick={() => setLinks(prev => prev.filter(l => l.id !== link.id))} className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0">
-                    <X size={12} />
-                  </button>
-                </div>
-              ))}
-              <LinkInputRow onAdd={link => setLinks(prev => [...prev, link])} />
-            </div>
-
-            {/* ステータス・優先度・期限 */}
-            <div className="flex gap-x-4 gap-y-2 flex-wrap items-center pt-1 border-t border-[#A2C2D0]/10">
-              <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                <span className="font-medium">ステータス</span>
-                <StatusBadge status={status} onChange={setStatus} />
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                <span className="font-medium">優先度</span>
-                <div className="flex gap-1">
-                  {Object.entries(PRIORITY_CONFIG).map(([k, cfg]) => (
-                    <button key={k} type="button" onClick={() => setPriority(k)}
-                      className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${cfg.color} ${priority === k ? 'ring-2 ring-offset-1 ring-current' : 'opacity-50 hover:opacity-80'}`}>
-                      {cfg.emoji} {cfg.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-gray-500 ml-auto">
-                <span className="font-medium">期限</span>
-                <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
-                  className="text-xs px-2 py-1 rounded-lg border border-[#A2C2D0]/20 bg-white/80 focus:outline-none focus:ring-1 focus:ring-[#A2C2D0]/40" />
-              </div>
-            </div>
-
-            <div className="flex justify-end">
-              <button type="button" onClick={() => setExpanded(false)} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">閉じる</button>
-            </div>
+            {open ? <ChevronUp size={15} className="text-gray-500 flex-shrink-0" /> : <ChevronDown size={15} className="text-gray-500 flex-shrink-0" />}
           </div>
-        )}
-      </form>
+        </button>
+
+        {/* フォーム本体 */}
+        {open && <div className="bg-white px-4 pt-3 pb-4">
+          <form onSubmit={handleSubmit}>
+            <div className="flex gap-2">
+              <input ref={inputRef} type="text" value={title} onChange={e => setTitle(e.target.value)}
+                onFocus={() => { if (!suppressExpand.current) setExpanded(true) }}
+                placeholder="タスク名を入力..."
+                className="flex-1 text-sm px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/40 placeholder-gray-400"
+              />
+              <button type="submit" disabled={!title.trim()}
+                className="p-1.5 rounded-lg bg-gray-100 hover:bg-[#A2C2D0]/20 text-[#7AAABB] disabled:opacity-40 transition-colors flex-shrink-0">
+                <Plus size={16} />
+              </button>
+            </div>
+
+            {expanded && (
+              <div className="flex flex-col gap-2 mt-2 animate-[fade-in_0.2s_ease-out] border border-gray-100 rounded-xl p-2.5 bg-gray-50/60">
+                {/* 詳細 */}
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">詳細</label>
+                  <textarea value={details} onChange={e => setDetails(e.target.value)} placeholder="タスクの詳細（任意）" rows={2}
+                    className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#A2C2D0]/40 placeholder-gray-400 resize-none" />
+                </div>
+
+                {/* 進捗メモ */}
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">進捗メモ</label>
+                  <textarea value={memo} onChange={e => setMemo(e.target.value)} placeholder="備考・進捗状況（任意）" rows={2}
+                    className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#A2C2D0]/40 placeholder-gray-400 resize-none" />
+                </div>
+
+                {/* 関連リンク */}
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">関連リンク</label>
+                  {links.map(link => (
+                    <div key={link.id} className="flex items-center gap-1.5 mb-1 px-2 py-1 bg-white rounded-lg border border-gray-100">
+                      <LinkSvgIcon size={10} className="text-[#5AAAC5] flex-shrink-0" />
+                      <span className="text-xs text-gray-600 flex-1 truncate">{link.title}</span>
+                      <button type="button" onClick={() => setLinks(prev => prev.filter(l => l.id !== link.id))} className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0">
+                        <X size={11} />
+                      </button>
+                    </div>
+                  ))}
+                  <LinkInputRow onAdd={link => setLinks(prev => [...prev, link])} />
+                </div>
+
+                {/* ステータス・優先度・期限 */}
+                <div className="flex gap-x-4 gap-y-2 flex-wrap items-center pt-1 border-t border-gray-100">
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <span className="font-medium">ステータス</span>
+                    <StatusBadge status={status} onChange={setStatus} />
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <span className="font-medium">優先度</span>
+                    <div className="flex gap-1">
+                      {Object.entries(PRIORITY_CONFIG).map(([k, cfg]) => (
+                        <button key={k} type="button" onClick={() => setPriority(k)}
+                          className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${cfg.color} ${priority === k ? 'ring-2 ring-offset-1 ring-current' : 'opacity-50 hover:opacity-80'}`}>
+                          {cfg.emoji} {cfg.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500 ml-auto">
+                    <span className="font-medium">期限</span>
+                    <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
+                      className="text-xs px-2 py-1 rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#A2C2D0]/40" />
+                  </div>
+                </div>
+
+              </div>
+            )}
+          </form>
+        </div>}
+      </div>
     </div>
   )
 }
@@ -706,6 +719,23 @@ function TaskEditModal({ task, onSave, onClose }) {
   )
 }
 
+// ─── SyncIndicator ────────────────────────────────────────
+function SyncIndicator({ status }) {
+  const configs = {
+    loading: { text: '読み込み中', className: 'text-gray-400 bg-gray-50', icon: <Cloud size={11} className="animate-pulse" /> },
+    saving:  { text: '保存中',    className: 'text-[#7AAABB] bg-[#A2C2D0]/15', icon: <Cloud size={11} /> },
+    synced:  { text: '同期済み',  className: 'text-[#4A9E68] bg-[#EAF6EF]',   icon: <Cloud size={11} /> },
+    error:   { text: 'オフライン', className: 'text-[#E5807A] bg-[#FDF0EF]',   icon: <CloudOff size={11} /> },
+  }
+  const cfg = configs[status] ?? configs.loading
+  return (
+    <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full font-medium text-xs ${cfg.className}`}>
+      {cfg.icon}
+      <span className="hidden sm:inline">{cfg.text}</span>
+    </div>
+  )
+}
+
 // ─── Empty State ──────────────────────────────────────────
 function EmptyState() {
   return (
@@ -730,9 +760,51 @@ export default function App() {
   const [filter, setFilter]               = useState('all')
   const [editingTask, setEditingTask]             = useState(null)
   const [editingDashItem, setEditingDashItem]     = useState(null) // { item, catId }
+  const [syncStatus, setSyncStatus]               = useState('loading')
+  const [hasLoaded, setHasLoaded]                 = useState(false)
+  const syncTimerRef = useRef(null)
 
   useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)) }, [tasks])
   useEffect(() => { localStorage.setItem(DASHBOARD_KEY, JSON.stringify(dashboard)) }, [dashboard])
+
+  // Google Sheets から初回読み込み
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch(SHEETS_API_URL)
+        const text = await res.text()
+        if (text && text.trim() !== '{}') {
+          const data = JSON.parse(text)
+          if (Array.isArray(data.tasks)) setTasks(data.tasks)
+          if (data.dashboard && typeof data.dashboard === 'object') setDashboard(data.dashboard)
+        }
+        setSyncStatus('synced')
+      } catch {
+        setSyncStatus('error')
+      }
+      setHasLoaded(true)
+    }
+    load()
+  }, [])
+
+  // データ変更時に Google Sheets へ同期（1.5秒デバウンス）
+  useEffect(() => {
+    if (!hasLoaded) return
+    setSyncStatus('saving')
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
+    syncTimerRef.current = setTimeout(async () => {
+      try {
+        await fetch(SHEETS_API_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          body: JSON.stringify({ tasks, dashboard, savedAt: new Date().toISOString() }),
+        })
+        setSyncStatus('synced')
+      } catch {
+        setSyncStatus('error')
+      }
+    }, 1500)
+  }, [tasks, dashboard, hasLoaded])
 
   const addTask = (fields) => {
     setTasks(prev => [{
@@ -805,13 +877,16 @@ export default function App() {
               <p className="text-xs text-gray-400 tracking-wider">TASK MANAGER</p>
             </div>
           </div>
-          <div className="hidden sm:flex items-center gap-2 text-xs">
-            <div className="flex items-center gap-1.5 bg-[#A2C2D0]/15 px-3 py-1.5 rounded-full text-[#7AAABB] font-medium">
-              <Clock size={11} />進行中 {activeTasks.filter(t => t.status === 'doing').length}
+          <div className="flex items-center gap-2 text-xs">
+            <div className="hidden sm:flex items-center gap-2">
+              <div className="flex items-center gap-1.5 bg-[#A2C2D0]/15 px-3 py-1.5 rounded-full text-[#7AAABB] font-medium">
+                <Clock size={11} />進行中 {activeTasks.filter(t => t.status === 'doing').length}
+              </div>
+              <div className="flex items-center gap-1.5 bg-[#EAF6EF] px-3 py-1.5 rounded-full text-[#4A9E68] font-medium">
+                <CheckCircle2 size={11} />今日 {todayDone}件完了
+              </div>
             </div>
-            <div className="flex items-center gap-1.5 bg-[#EAF6EF] px-3 py-1.5 rounded-full text-[#4A9E68] font-medium">
-              <CheckCircle2 size={11} />今日 {todayDone}件完了
-            </div>
+            <SyncIndicator status={syncStatus} />
           </div>
         </div>
       </header>
