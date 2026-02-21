@@ -52,18 +52,24 @@ function getRecurrencePresets(date) {
 
 function getRecurrenceLabel(rec) {
   if (!rec || rec.type === 'none') return null
+  let base = ''
   switch (rec.type) {
-    case 'daily':    return '毎日'
-    case 'weekly':   return `毎週 ${WEEKDAY_NAMES[rec.weekday]}曜`
-    case 'monthly':  return `毎月 ${WEEK_OF_MONTH_LABEL[rec.weekOfMonth]}${WEEKDAY_NAMES[rec.weekday]}曜`
-    case 'yearly':   return `毎年 ${rec.month}月${rec.day}日`
-    case 'weekdays': return '毎週 平日（月〜金）'
+    case 'daily':    base = '毎日'; break
+    case 'weekly':   base = `毎週 ${WEEKDAY_NAMES[rec.weekday]}曜`; break
+    case 'monthly':  base = `毎月 ${WEEK_OF_MONTH_LABEL[rec.weekOfMonth]}${WEEKDAY_NAMES[rec.weekday]}曜`; break
+    case 'yearly':   base = `毎年 ${rec.month}月${rec.day}日`; break
+    case 'weekdays': base = '毎週 平日（月〜金）'; break
     case 'custom': {
-      if (!rec.customDays?.length) return 'カスタム'
-      return `毎週 ${[...rec.customDays].sort((a,b)=>a-b).map(d => WEEKDAY_NAMES[d]).join('・')}曜`
+      if (!rec.customDays?.length) { base = 'カスタム'; break }
+      base = `毎週 ${[...rec.customDays].sort((a,b)=>a-b).map(d => WEEKDAY_NAMES[d]).join('・')}曜`; break
     }
     default: return null
   }
+  if (rec.startTime) {
+    base += ` ${rec.startTime}`
+    if (rec.endTime) base += `〜${rec.endTime}`
+  }
+  return base
 }
 
 /**
@@ -403,10 +409,50 @@ function TaskRow({ task, onStatusChange, onDelete, onToggleDone, onEdit }) {
   )
 }
 
+// ─── TimeSelect（15分刻み）────────────────────────────────
+const HOURS   = Array.from({ length: 24 }, (_, i) => i)
+const MINUTES = [0, 15, 30, 45]
+
+function TimeSelect({ value, onChange }) {
+  const [h, m] = value ? value.split(':').map(Number) : [null, null]
+  const hasHour = h !== null && value !== ''
+
+  const update = (newH, newM) => {
+    if (newH === '' || newH === null) { onChange(''); return }
+    const mm = newM !== null && newM !== undefined ? newM : 0
+    onChange(`${String(newH).padStart(2,'0')}:${String(mm).padStart(2,'0')}`)
+  }
+
+  return (
+    <div className="flex items-center gap-0.5">
+      <select
+        value={hasHour ? h : ''}
+        onChange={e => update(e.target.value !== '' ? Number(e.target.value) : '', hasHour ? m : 0)}
+        className="text-xs px-1 py-1 rounded border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#A2C2D0]/40 text-gray-700"
+      >
+        <option value="">--</option>
+        {HOURS.map(hh => <option key={hh} value={hh}>{String(hh).padStart(2,'0')}</option>)}
+      </select>
+      <span className="text-xs text-gray-400 px-0.5">:</span>
+      <select
+        value={hasHour ? (m ?? 0) : 0}
+        onChange={e => update(h, Number(e.target.value))}
+        disabled={!hasHour}
+        className="text-xs px-1 py-1 rounded border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#A2C2D0]/40 text-gray-700 disabled:opacity-40"
+      >
+        {MINUTES.map(mm => <option key={mm} value={mm}>{String(mm).padStart(2,'0')}</option>)}
+      </select>
+    </div>
+  )
+}
+
 // ─── RecurrenceSelector ───────────────────────────────────
 function RecurrenceSelector({ value, onChange }) {
   const presets = useMemo(() => getRecurrencePresets(new Date()), [])
   const type = value?.type || 'none'
+
+  const updateTime = (key, t) => onChange({ ...value, [key]: t })
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-1.5">
@@ -414,9 +460,9 @@ function RecurrenceSelector({ value, onChange }) {
           <button key={opt.type} type="button"
             onClick={() => {
               if (opt.type === 'custom') {
-                onChange({ type: 'custom', customDays: value?.customDays || [] })
+                onChange({ type: 'custom', customDays: value?.customDays || [], startTime: value?.startTime || '', endTime: value?.endTime || '' })
               } else {
-                onChange({ ...opt })
+                onChange({ ...opt, startTime: value?.startTime || '', endTime: value?.endTime || '' })
               }
             }}
             className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
@@ -429,6 +475,7 @@ function RecurrenceSelector({ value, onChange }) {
           </button>
         ))}
       </div>
+
       {type === 'custom' && (
         <div className="flex gap-1.5 pt-1 flex-wrap">
           {WEEKDAY_NAMES.map((name, i) => {
@@ -439,7 +486,7 @@ function RecurrenceSelector({ value, onChange }) {
                   const days = selected
                     ? (value.customDays || []).filter(d => d !== i)
                     : [...(value.customDays || []), i]
-                  onChange({ type: 'custom', customDays: days })
+                  onChange({ ...value, customDays: days })
                 }}
                 className={`w-8 h-8 text-xs rounded-full border font-medium transition-all ${
                   selected
@@ -451,6 +498,15 @@ function RecurrenceSelector({ value, onChange }) {
               </button>
             )
           })}
+        </div>
+      )}
+
+      {type !== 'none' && (
+        <div className="flex items-center gap-2 pt-1 flex-wrap">
+          <span className="text-xs text-gray-400">時間</span>
+          <TimeSelect value={value?.startTime || ''} onChange={t => updateTime('startTime', t)} />
+          <span className="text-xs text-gray-400">〜</span>
+          <TimeSelect value={value?.endTime || ''} onChange={t => updateTime('endTime', t)} />
         </div>
       )}
     </div>
