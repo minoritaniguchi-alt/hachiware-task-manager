@@ -2,7 +2,7 @@ const TASK_SHEET = 'タスク';
 const DASH_SHEET = 'ダッシュボード';
 
 const TASK_HEADERS = ['ID', 'タイトル', '詳細', '進捗メモ', 'ステータス', '期限', 'リンク', '作成日時', '完了日時'];
-const DASH_HEADERS = ['ID', 'カテゴリ', '業務名', '詳細', '進捗メモ', 'リンク'];
+const DASH_HEADERS = ['ID', 'カテゴリ', '業務名', '詳細', '進捗メモ', 'リンク', 'スケジュール'];
 
 function getOrCreateSheet(name, headers) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -54,6 +54,7 @@ function doGet(e) {
           details: row[3],
           memo: row[4],
           links: row[5] ? JSON.parse(row[5]) : [],
+          recurrence: row[6] ? JSON.parse(row[6]) : { type: 'none' },
         });
       }
     });
@@ -104,6 +105,7 @@ function doPost(e) {
           item.details || '',
           item.memo || '',
           item.links && item.links.length > 0 ? JSON.stringify(item.links) : '',
+          item.recurrence && item.recurrence.type !== 'none' ? JSON.stringify(item.recurrence) : '',
         ]);
       });
     });

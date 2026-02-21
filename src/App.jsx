@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react'
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useMemo } from 'react'
 import {
   Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2,
   Clock, PauseCircle, Eye, Timer, Archive, RotateCcw,
@@ -28,6 +28,43 @@ const DASHBOARD_CATEGORIES = [
 ]
 
 const TOAST_MSGS = { add: 'タスクを追加しました', done: '完了しました ✓', restore: 'リストに戻しました', edit: '保存しました' }
+
+// ─── スケジュール（繰り返し）ヘルパー ────────────────────
+const WEEKDAY_NAMES = ['日', '月', '火', '水', '木', '金', '土']
+const WEEK_OF_MONTH_LABEL = ['', '第1', '第2', '第3', '第4', '第5']
+
+function getRecurrencePresets(date) {
+  const d = date || new Date()
+  const wd  = d.getDay()
+  const wom = Math.ceil(d.getDate() / 7)
+  const m   = d.getMonth() + 1
+  const day = d.getDate()
+  return [
+    { type: 'none',     label: '繰り返さない' },
+    { type: 'daily',    label: '毎日' },
+    { type: 'weekly',   label: `毎週 ${WEEKDAY_NAMES[wd]}曜`, weekday: wd },
+    { type: 'monthly',  label: `毎月 ${WEEK_OF_MONTH_LABEL[wom]}${WEEKDAY_NAMES[wd]}曜`, weekOfMonth: wom, weekday: wd },
+    { type: 'yearly',   label: `毎年 ${m}月${day}日`, month: m, day },
+    { type: 'weekdays', label: '毎週 平日（月〜金）' },
+    { type: 'custom',   label: 'カスタム' },
+  ]
+}
+
+function getRecurrenceLabel(rec) {
+  if (!rec || rec.type === 'none') return null
+  switch (rec.type) {
+    case 'daily':    return '毎日'
+    case 'weekly':   return `毎週 ${WEEKDAY_NAMES[rec.weekday]}曜`
+    case 'monthly':  return `毎月 ${WEEK_OF_MONTH_LABEL[rec.weekOfMonth]}${WEEKDAY_NAMES[rec.weekday]}曜`
+    case 'yearly':   return `毎年 ${rec.month}月${rec.day}日`
+    case 'weekdays': return '毎週 平日（月〜金）'
+    case 'custom': {
+      if (!rec.customDays?.length) return 'カスタム'
+      return `毎週 ${[...rec.customDays].sort((a,b)=>a-b).map(d => WEEKDAY_NAMES[d]).join('・')}曜`
+    }
+    default: return null
+  }
+}
 
 /**
  * タスクデータ構造（v2）
@@ -144,6 +181,7 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
   const [input, setInput] = useState('')
   const [details, setDetails] = useState('')
   const [links, setLinks] = useState([])
+  const [recurrence, setRecurrence] = useState({ type: 'none' })
   const [formExpanded, setFormExpanded] = useState(false)
   const linkInputRef = useRef(null)
 
@@ -152,8 +190,8 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
     if (!v) return
     const pendingLink = linkInputRef.current?.flush()
     const allLinks = pendingLink ? [...links, pendingLink] : links
-    onAdd(category.id, v, details.trim(), allLinks)
-    setInput(''); setDetails(''); setLinks([]); setFormExpanded(false)
+    onAdd(category.id, v, details.trim(), allLinks, recurrence)
+    setInput(''); setDetails(''); setLinks([]); setRecurrence({ type: 'none' }); setFormExpanded(false)
   }
 
   return (
@@ -200,6 +238,10 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
             {formExpanded && (
               <div className="flex flex-col gap-2 animate-[fade-in_0.2s_ease-out] border border-gray-100 rounded-xl p-2.5 bg-gray-50/60">
                 <div>
+                  <label className="text-xs text-gray-400 block mb-1">スケジュール</label>
+                  <RecurrenceSelector value={recurrence} onChange={setRecurrence} />
+                </div>
+                <div>
                   <label className="text-xs text-gray-400 block mb-1">業務詳細</label>
                   <textarea
                     value={details} onChange={e => setDetails(e.target.value)}
@@ -222,7 +264,7 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
                 </div>
                 <div className="flex justify-end">
                   <button type="button"
-                    onClick={() => { setFormExpanded(false); setDetails(''); setLinks([]) }}
+                    onClick={() => { setFormExpanded(false); setDetails(''); setLinks([]); setRecurrence({ type: 'none' }) }}
                     className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
                     閉じる
                   </button>
@@ -237,6 +279,9 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
                 onClick={() => onEdit(item, category.id)}>
                 <div className="flex-1 min-w-0">
                   <span className="text-sm text-gray-700 leading-snug">{item.text}</span>
+                  {getRecurrenceLabel(item.recurrence) && (
+                    <p className="text-xs text-[#7AAABB] mt-0.5 font-medium">🔄 {getRecurrenceLabel(item.recurrence)}</p>
+                  )}
                   {item.details && (
                     <p className="text-xs text-gray-500 mt-0.5 leading-snug whitespace-pre-line">{item.details}</p>
                   )}
@@ -358,6 +403,60 @@ function TaskRow({ task, onStatusChange, onDelete, onToggleDone, onEdit }) {
   )
 }
 
+// ─── RecurrenceSelector ───────────────────────────────────
+function RecurrenceSelector({ value, onChange }) {
+  const presets = useMemo(() => getRecurrencePresets(new Date()), [])
+  const type = value?.type || 'none'
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap gap-1.5">
+        {presets.map(opt => (
+          <button key={opt.type} type="button"
+            onClick={() => {
+              if (opt.type === 'custom') {
+                onChange({ type: 'custom', customDays: value?.customDays || [] })
+              } else {
+                onChange({ ...opt })
+              }
+            }}
+            className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
+              type === opt.type
+                ? 'bg-[#A2C2D0] text-white border-[#7AAABB]'
+                : 'bg-white text-gray-500 border-gray-200 hover:border-[#A2C2D0] hover:text-gray-700'
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      {type === 'custom' && (
+        <div className="flex gap-1.5 pt-1 flex-wrap">
+          {WEEKDAY_NAMES.map((name, i) => {
+            const selected = value?.customDays?.includes(i)
+            return (
+              <button key={i} type="button"
+                onClick={() => {
+                  const days = selected
+                    ? (value.customDays || []).filter(d => d !== i)
+                    : [...(value.customDays || []), i]
+                  onChange({ type: 'custom', customDays: days })
+                }}
+                className={`w-8 h-8 text-xs rounded-full border font-medium transition-all ${
+                  selected
+                    ? 'bg-[#A2C2D0] text-white border-[#7AAABB]'
+                    : 'bg-white text-gray-400 border-gray-200 hover:border-[#A2C2D0]'
+                }`}
+              >
+                {name}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── 編集可能リンクリスト ─────────────────────────────────
 function EditableLinkList({ links, onChange }) {
   const [editingId, setEditingId] = useState(null)
@@ -470,16 +569,17 @@ const LinkInputRow = forwardRef(function LinkInputRow({ onAdd }, ref) {
 
 // ─── DashboardItemEditModal ───────────────────────────────
 function DashboardItemEditModal({ item, onSave, onClose }) {
-  const [title, setTitle]     = useState(item.text || '')
-  const [details, setDetails] = useState(item.details || '')
-  const [links, setLinks]     = useState(item.links || [])
+  const [title, setTitle]         = useState(item.text || '')
+  const [details, setDetails]     = useState(item.details || '')
+  const [links, setLinks]         = useState(item.links || [])
+  const [recurrence, setRecurrence] = useState(item.recurrence || { type: 'none' })
   const linkInputRef = useRef(null)
 
   const handleSave = () => {
     if (!title.trim()) return
     const pendingLink = linkInputRef.current?.flush()
     const allLinks = pendingLink ? [...links, pendingLink] : links
-    onSave({ title: title.trim(), details: details.trim(), memo: item.memo || '', links: allLinks })
+    onSave({ title: title.trim(), details: details.trim(), memo: item.memo || '', links: allLinks, recurrence })
     onClose()
   }
 
@@ -501,6 +601,10 @@ function DashboardItemEditModal({ item, onSave, onClose }) {
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">業務名</label>
             <input type="text" value={title} onChange={e => setTitle(e.target.value)}
               className="w-full text-sm font-medium px-4 py-2.5 rounded-xl border-2 border-[#A2C2D0]/25 bg-white focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/40 focus:border-[#A2C2D0]/50 transition-all" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">スケジュール</label>
+            <RecurrenceSelector value={recurrence} onChange={setRecurrence} />
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">業務詳細</label>
@@ -869,15 +973,15 @@ export default function App() {
 
   const deleteTask = (id) => setTasks(prev => prev.filter(t => t.id !== id))
 
-  const addDashboardItem = (catId, text, details = '', links = []) =>
-    setDashboard(prev => ({ ...prev, [catId]: [...(prev[catId] || []), { id: Date.now().toString(), text, details, memo: '', links }] }))
+  const addDashboardItem = (catId, text, details = '', links = [], recurrence = { type: 'none' }) =>
+    setDashboard(prev => ({ ...prev, [catId]: [...(prev[catId] || []), { id: Date.now().toString(), text, details, memo: '', links, recurrence }] }))
   const deleteDashboardItem = (catId, itemId) =>
     setDashboard(prev => ({ ...prev, [catId]: (prev[catId] || []).filter(i => i.id !== itemId) }))
   const updateDashboardItem = (catId, itemId, fields) => {
     setDashboard(prev => ({
       ...prev,
       [catId]: (prev[catId] || []).map(item =>
-        item.id !== itemId ? item : { ...item, text: fields.title, details: fields.details, memo: fields.memo, links: fields.links }
+        item.id !== itemId ? item : { ...item, text: fields.title, details: fields.details, memo: fields.memo, links: fields.links, recurrence: fields.recurrence }
       ),
     }))
     setToast(TOAST_MSGS.edit)
