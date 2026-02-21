@@ -240,13 +240,15 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
               </button>
             </div>
 
+            {/* スケジュール（常時表示） */}
+            <div className="border border-gray-100 rounded-xl p-2.5 bg-gray-50/60">
+              <label className="text-xs text-gray-400 block mb-1.5">スケジュール</label>
+              <RecurrenceSelector value={recurrence} onChange={setRecurrence} />
+            </div>
+
             {/* 業務詳細・リンク（フォーカス時展開） */}
             {formExpanded && (
               <div className="flex flex-col gap-2 animate-[fade-in_0.2s_ease-out] border border-gray-100 rounded-xl p-2.5 bg-gray-50/60">
-                <div>
-                  <label className="text-xs text-gray-400 block mb-1">スケジュール</label>
-                  <RecurrenceSelector value={recurrence} onChange={setRecurrence} />
-                </div>
                 <div>
                   <label className="text-xs text-gray-400 block mb-1">業務詳細</label>
                   <textarea
@@ -270,7 +272,7 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
                 </div>
                 <div className="flex justify-end">
                   <button type="button"
-                    onClick={() => { setFormExpanded(false); setDetails(''); setLinks([]); setRecurrence({ type: 'none' }) }}
+                    onClick={() => { setFormExpanded(false); setDetails(''); setLinks([]) }}
                     className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
                     閉じる
                   </button>
