@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 're
 import {
   Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2,
   Clock, PauseCircle, Eye, Timer, Archive, RotateCcw,
-  Pencil, X, Link as LinkIcon, Cloud, CloudOff
+  Pencil, X, Check, Link as LinkIcon, Cloud, CloudOff
 } from 'lucide-react'
 import catLogo from './assets/cat_Image.png'
 import './index.css'
@@ -358,6 +358,75 @@ function TaskRow({ task, onStatusChange, onDelete, onToggleDone, onEdit }) {
   )
 }
 
+// ─── 編集可能リンクリスト ─────────────────────────────────
+function EditableLinkList({ links, onChange }) {
+  const [editingId, setEditingId] = useState(null)
+  const [editUrl, setEditUrl]     = useState('')
+  const [editTitle, setEditTitle] = useState('')
+
+  const startEdit = (link) => {
+    setEditingId(link.id)
+    setEditUrl(link.url)
+    setEditTitle(link.title)
+  }
+  const saveEdit = (id) => {
+    const u = editUrl.trim()
+    if (!u) return
+    onChange(links.map(l => l.id === id
+      ? { ...l, url: u.startsWith('http') ? u : `https://${u}`, title: editTitle.trim() || u }
+      : l
+    ))
+    setEditingId(null)
+  }
+  const cancelEdit = () => setEditingId(null)
+  const deleteLink = (id) => onChange(links.filter(l => l.id !== id))
+
+  return (
+    <div className="flex flex-col gap-1.5 mb-2">
+      {links.map(link => (
+        <div key={link.id}>
+          {editingId === link.id ? (
+            <div className="flex gap-1.5 items-center p-2 bg-[#F0F7FA] rounded-lg border border-[#A2C2D0]/30">
+              <input
+                value={editUrl} onChange={e => setEditUrl(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && saveEdit(link.id)}
+                placeholder="URL"
+                className="flex-1 text-xs px-2 py-1 rounded border border-[#A2C2D0]/30 bg-white focus:outline-none focus:ring-1 focus:ring-[#A2C2D0]/40 min-w-0"
+              />
+              <input
+                value={editTitle} onChange={e => setEditTitle(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && saveEdit(link.id)}
+                placeholder="表示名"
+                className="w-24 text-xs px-2 py-1 rounded border border-[#A2C2D0]/30 bg-white focus:outline-none focus:ring-1 focus:ring-[#A2C2D0]/40"
+              />
+              <button onClick={() => saveEdit(link.id)} className="p-1 text-[#4A9E68] hover:bg-[#EAF6EF] rounded transition-colors flex-shrink-0" title="保存">
+                <Check size={13} />
+              </button>
+              <button onClick={cancelEdit} className="p-1 text-gray-400 hover:bg-gray-100 rounded transition-colors flex-shrink-0" title="キャンセル">
+                <X size={13} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-2 bg-[#F8F4F0] rounded-lg border border-[#A2C2D0]/15 group">
+              <LinkSvgIcon size={12} className="text-[#5AAAC5] flex-shrink-0" />
+              <a href={link.url} target="_blank" rel="noopener noreferrer"
+                className="text-xs text-[#5AAAC5] hover:underline flex-1 truncate">{link.title || link.url}</a>
+              <button onClick={() => startEdit(link)}
+                className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-[#7AAABB] rounded hover:bg-[#A2C2D0]/15 transition-all flex-shrink-0" title="編集">
+                <Pencil size={11} />
+              </button>
+              <button onClick={() => deleteLink(link.id)}
+                className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-400 rounded hover:bg-red-50 transition-all flex-shrink-0" title="削除">
+                <X size={13} />
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ─── リンク入力行（フォーム/モーダル共通）────────────────
 const LinkInputRow = forwardRef(function LinkInputRow({ onAdd }, ref) {
   const [url, setUrl]     = useState('')
@@ -440,19 +509,7 @@ function DashboardItemEditModal({ item, onSave, onClose }) {
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">リンク</label>
-            <div className="flex flex-col gap-1.5 mb-2">
-              {links.map(link => (
-                <div key={link.id} className="flex items-center gap-2 px-3 py-2 bg-[#F8F4F0] rounded-lg border border-[#A2C2D0]/15 group">
-                  <LinkSvgIcon size={12} className="text-[#5AAAC5] flex-shrink-0" />
-                  <a href={link.url} target="_blank" rel="noopener noreferrer"
-                    className="text-xs text-[#5AAAC5] hover:underline flex-1 truncate">{link.title || link.url}</a>
-                  <button onClick={() => setLinks(prev => prev.filter(l => l.id !== link.id))}
-                    className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-400 transition-all flex-shrink-0">
-                    <X size={13} />
-                  </button>
-                </div>
-              ))}
-            </div>
+            <EditableLinkList links={links} onChange={setLinks} />
             <LinkInputRow ref={linkInputRef} onAdd={link => setLinks(prev => [...prev, link])} />
           </div>
         </div>
@@ -661,19 +718,7 @@ function TaskEditModal({ task, onSave, onClose }) {
           {/* 関連リンク */}
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">関連リンク</label>
-            <div className="flex flex-col gap-1.5 mb-2">
-              {links.map(link => (
-                <div key={link.id} className="flex items-center gap-2 px-3 py-2 bg-[#F8F4F0] rounded-lg border border-[#A2C2D0]/15 group">
-                  <LinkSvgIcon size={12} className="text-[#5AAAC5] flex-shrink-0" />
-                  <a href={link.url} target="_blank" rel="noopener noreferrer"
-                    className="text-xs text-[#5AAAC5] hover:underline flex-1 truncate">{link.title || link.url}</a>
-                  <button onClick={() => setLinks(prev => prev.filter(l => l.id !== link.id))}
-                    className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-400 transition-all flex-shrink-0">
-                    <X size={13} />
-                  </button>
-                </div>
-              ))}
-            </div>
+            <EditableLinkList links={links} onChange={setLinks} />
             <LinkInputRow ref={linkInputRef} onAdd={link => setLinks(prev => [...prev, link])} />
           </div>
         </div>
