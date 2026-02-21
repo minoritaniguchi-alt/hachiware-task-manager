@@ -19,6 +19,42 @@ function getOrCreateSheet(name, headers) {
   return sheet;
 }
 
+// デバッグ用：手順書シート作成テスト
+function testProcSheet() {
+  const sheet = getOrCreateSheet(PROC_SHEET, PROC_HEADERS);
+  Logger.log('手順書シート作成OK: ' + sheet.getName());
+}
+
+// デバッグ用：手順書データ書き込みテスト
+function testWriteProcData() {
+  const testData = {
+    categories: [
+      { id: '1', name: 'テストカテゴリ', items: [
+        { id: '101', title: 'テストリンク', url: 'https://example.com', note: 'テストメモ' }
+      ]}
+    ]
+  };
+  const procSheet = getOrCreateSheet(PROC_SHEET, PROC_HEADERS);
+  if (procSheet.getLastRow() > 1) {
+    procSheet.getRange(2, 1, procSheet.getLastRow() - 1, PROC_HEADERS.length).clearContent();
+  }
+  const rows = [];
+  testData.categories.forEach(cat => {
+    if (cat.items && cat.items.length > 0) {
+      cat.items.forEach(item => {
+        rows.push([cat.id, cat.name, item.id, item.title || '', item.url || '', item.note || '']);
+      });
+    } else {
+      rows.push([cat.id, cat.name, '', '', '', '']);
+    }
+  });
+  Logger.log('書き込む行数: ' + rows.length);
+  if (rows.length > 0) {
+    procSheet.getRange(2, 1, rows.length, PROC_HEADERS.length).setValues(rows);
+    Logger.log('書き込み完了');
+  }
+}
+
 function doGet(e) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 

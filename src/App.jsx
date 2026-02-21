@@ -11,7 +11,7 @@ import './index.css'
 const STORAGE_KEY   = 'hachiware-tasks-v1'
 const DASHBOARD_KEY = 'hachiware-dashboard-v1'
 const PROCEDURES_KEY = 'hachiware-procedures-v1'
-const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbx3KRrjrsAaogfMUSKI5y1advs80kqK-HSWYLqBDgz8c_bIoat7T7udOJFIHj_84wCgIQ/exec'
+const SHEETS_API_URL = import.meta.env.VITE_SHEETS_API_URL ?? ''
 
 const STATUS_CONFIG = {
   doing:   { label: '💨 やってる！',   color: 'text-white bg-[#2863AB] border-[#1F4F8A]', dot: 'bg-white' },
@@ -27,6 +27,9 @@ const DASHBOARD_CATEGORIES = [
   { id: 'adhoc',   label: '臨時対応',     emoji: '📷', borderColor: 'border-[#F2CBC9]', bgColor: 'from-[#F2CBC9]/10 to-[#F2CBC9]/5', color: '#F2CBC9', earPosition: 'top-center' },
   { id: 'schedule', label: '予定',         emoji: '🎸', borderColor: 'border-[#C8D8A8]', bgColor: 'from-[#C8D8A8]/20 to-[#C8D8A8]/5', color: '#C8D8A8', earPosition: 'top-right' },
 ]
+
+const PROC_COLORS = ['#E8C8A0', '#A2C2D0', '#F2CBC9', '#C8D8A8', '#C8C0D8', '#F0C4B0']
+const PROC_EAR_POSITIONS = ['top-left', 'top-center', 'top-right']
 
 const TOAST_MSGS = { add: 'タスクを追加しました', done: '完了しました ✓', restore: 'リストに戻しました', edit: '保存しました' }
 
@@ -744,7 +747,9 @@ function ProcedureItemEditModal({ item, onSave, onClose }) {
 }
 
 // ─── ProcedureCategory ────────────────────────────────────
-function ProcedureCategory({ category, onAddItem, onDeleteItem, onEditItem, onDelete, onRename }) {
+function ProcedureCategory({ category, onAddItem, onDeleteItem, onEditItem, onDelete, onRename, colorIndex }) {
+  const color   = PROC_COLORS[colorIndex % PROC_COLORS.length]
+  const earPos  = PROC_EAR_POSITIONS[colorIndex % PROC_EAR_POSITIONS.length]
   const [open, setOpen]             = useState(true)
   const [addExpanded, setAddExpanded] = useState(false)
   const [newTitle, setNewTitle]     = useState('')
@@ -772,10 +777,10 @@ function ProcedureCategory({ category, onAddItem, onDeleteItem, onEditItem, onDe
 
   return (
     <div className="relative pt-9">
-      <CatEarsDecor position="top-left" color="#E8C8A0" />
-      <div className="rounded-3xl border-2 border-[#E8C8A0] overflow-hidden">
+      <CatEarsDecor position={earPos} color={color} />
+      <div className="rounded-3xl border-2 overflow-hidden" style={{ borderColor: color }}>
         {/* ヘッダー */}
-        <div className="flex items-end justify-between px-4 pb-2 pt-2" style={{ backgroundColor: '#E8C8A0', minHeight: 64 }}>
+        <div className="flex items-end justify-between px-4 pb-2 pt-2" style={{ backgroundColor: color, minHeight: 64 }}>
           {editingName ? (
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <input value={nameInput} onChange={e => setNameInput(e.target.value)}
@@ -859,7 +864,8 @@ function ProcedureCategory({ category, onAddItem, onDeleteItem, onEditItem, onDe
                   <button onClick={() => { setAddExpanded(false); setNewTitle(''); setNewUrl(''); setNewNote('') }}
                     className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 transition-colors">キャンセル</button>
                   <button onClick={handleAdd} disabled={!newUrl.trim() && !newTitle.trim()}
-                    className="text-xs bg-[#E8C8A0] text-[#6B4F2A] hover:bg-[#D4B086] px-3 py-1.5 rounded-lg font-medium disabled:opacity-40 transition-colors">
+                    className="text-xs text-gray-700 px-3 py-1.5 rounded-lg font-medium disabled:opacity-40 transition-colors"
+                    style={{ backgroundColor: color }}>
                     追加
                   </button>
                 </div>
@@ -1094,6 +1100,7 @@ function SyncIndicator({ status }) {
     saving:  { text: '保存中',    className: 'text-[#7AAABB] bg-[#A2C2D0]/15', icon: <Cloud size={11} /> },
     synced:  { text: '同期済み',  className: 'text-[#4A9E68] bg-[#EAF6EF]',   icon: <Cloud size={11} /> },
     error:   { text: 'オフライン', className: 'text-[#E5807A] bg-[#FDF0EF]',   icon: <CloudOff size={11} /> },
+    local:   { text: 'ローカル',  className: 'text-gray-400 bg-gray-100',      icon: <CloudOff size={11} /> },
   }
   const cfg = configs[status] ?? configs.loading
   return (
@@ -1146,6 +1153,11 @@ export default function App() {
   // Google Sheets から初回読み込み
   useEffect(() => {
     const load = async () => {
+      if (!SHEETS_API_URL) {
+        setSyncStatus('local')
+        setHasLoaded(true)
+        return
+      }
       try {
         // キャッシュバスターでブラウザキャッシュを回避
         const res = await fetch(`${SHEETS_API_URL}?t=${Date.now()}`)
@@ -1212,6 +1224,7 @@ export default function App() {
   // データ変更時に Google Sheets へ同期（1.5秒デバウンス）
   useEffect(() => {
     if (!hasLoaded) return
+    if (!SHEETS_API_URL) { setSyncStatus('local'); return }
     setSyncStatus('saving')
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
     syncTimerRef.current = setTimeout(async () => {
@@ -1371,11 +1384,12 @@ export default function App() {
                     <p className="text-sm text-gray-400 font-medium">カテゴリを追加してリンクを整理しましょう</p>
                   </div>
                 ) : (
-                  procedures.categories.map(cat => (
+                  procedures.categories.map((cat, i) => (
                     <ProcedureCategory key={cat.id} category={cat}
                       onAddItem={addProcItem} onDeleteItem={deleteProcItem}
                       onEditItem={(item, catId) => setEditingProcItem({ item, catId })}
-                      onDelete={deleteProcCategory} onRename={renameProcCategory} />
+                      onDelete={deleteProcCategory} onRename={renameProcCategory}
+                      colorIndex={i} />
                   ))
                 )}
               </div>
