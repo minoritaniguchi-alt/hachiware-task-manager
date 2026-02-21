@@ -952,7 +952,8 @@ export default function App() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(SHEETS_API_URL)
+        // キャッシュバスターでブラウザキャッシュを回避
+        const res = await fetch(`${SHEETS_API_URL}?t=${Date.now()}`)
         const text = await res.text()
         if (text && text.trim() !== '{}') {
           const data = JSON.parse(text)
@@ -960,8 +961,42 @@ export default function App() {
           const isEmpty = Array.isArray(data.tasks) && data.tasks.length === 0 &&
             data.dashboard && Object.values(data.dashboard).every(arr => Array.isArray(arr) && arr.length === 0)
           if (!isEmpty) {
-            if (Array.isArray(data.tasks)) setTasks(data.tasks)
-            if (data.dashboard && typeof data.dashboard === 'object') setDashboard(data.dashboard)
+            // タスク：GASにないローカルのタスク（ロード中に追加されたもの）を保持
+            if (Array.isArray(data.tasks)) {
+              setTasks(prev => {
+                const gasIds = new Set(data.tasks.map(t => t.id))
+                const localOnly = prev.filter(t => !gasIds.has(t.id))
+                return [...data.tasks, ...localOnly]
+              })
+            }
+            // ダッシュボード：GASデータを基本としつつ、ロード中の変更やrecurrenceを保持
+            if (data.dashboard && typeof data.dashboard === 'object') {
+              setDashboard(prev => {
+                const merged = {}
+                const allCatIds = new Set([...Object.keys(data.dashboard), ...Object.keys(prev)])
+                allCatIds.forEach(catId => {
+                  const gasItems = data.dashboard[catId] || []
+                  const localItems = prev[catId] || []
+                  const gasIds = new Set(gasItems.map(i => i.id))
+                  // GASにないローカルアイテム（ロード中に追加されたもの）
+                  const localOnly = localItems.filter(i => !gasIds.has(i.id))
+                  merged[catId] = [
+                    ...gasItems.map(gasItem => {
+                      const localItem = localItems.find(i => i.id === gasItem.id)
+                      if (!localItem) return gasItem
+                      // GASにrecurrenceがなく、ローカルにある場合はローカルを優先
+                      if (localItem.recurrence?.type !== 'none' &&
+                          (!gasItem.recurrence || gasItem.recurrence.type === 'none')) {
+                        return { ...gasItem, recurrence: localItem.recurrence }
+                      }
+                      return gasItem
+                    }),
+                    ...localOnly,
+                  ]
+                })
+                return merged
+              })
+            }
           }
         }
         setSyncStatus('synced')
