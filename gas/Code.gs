@@ -1,8 +1,10 @@
 const TASK_SHEET = 'タスク';
 const DASH_SHEET = 'ダッシュボード';
+const PROC_SHEET = '手順書';
 
 const TASK_HEADERS = ['ID', 'タイトル', '詳細', '進捗メモ', 'ステータス', '期限', 'リンク', '作成日時', '完了日時'];
 const DASH_HEADERS = ['ID', 'カテゴリ', '業務名', '詳細', '進捗メモ', 'リンク', 'スケジュール'];
+const PROC_HEADERS = ['カテゴリID', 'カテゴリ名', 'アイテムID', '表示名', 'URL', '備考'];
 
 function getOrCreateSheet(name, headers) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -60,8 +62,31 @@ function doGet(e) {
     });
   }
 
+  // 手順書読み込み
+  let procedures = { categories: [] };
+  const procSheet = ss.getSheetByName(PROC_SHEET);
+  if (procSheet && procSheet.getLastRow() > 1) {
+    const rows = procSheet.getRange(2, 1, procSheet.getLastRow() - 1, PROC_HEADERS.length).getValues();
+    const catMap = {};
+    rows.filter(row => row[0]).forEach(row => {
+      const catId = String(row[0]);
+      if (!catMap[catId]) {
+        catMap[catId] = { id: catId, name: row[1], items: [] };
+      }
+      if (row[2]) {
+        catMap[catId].items.push({
+          id: String(row[2]),
+          title: row[3] || '',
+          url: row[4] || '',
+          note: row[5] || '',
+        });
+      }
+    });
+    procedures.categories = Object.values(catMap);
+  }
+
   return ContentService
-    .createTextOutput(JSON.stringify({ tasks, dashboard }))
+    .createTextOutput(JSON.stringify({ tasks, dashboard, procedures }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -111,6 +136,28 @@ function doPost(e) {
     });
     if (rows.length > 0) {
       dashSheet.getRange(2, 1, rows.length, DASH_HEADERS.length).setValues(rows);
+    }
+  }
+
+  // 手順書書き込み
+  const procSheet = getOrCreateSheet(PROC_SHEET, PROC_HEADERS);
+  if (procSheet.getLastRow() > 1) {
+    procSheet.getRange(2, 1, procSheet.getLastRow() - 1, PROC_HEADERS.length).clearContent();
+  }
+  if (data.procedures && data.procedures.categories) {
+    const rows = [];
+    data.procedures.categories.forEach(cat => {
+      if (cat.items && cat.items.length > 0) {
+        cat.items.forEach(item => {
+          rows.push([cat.id, cat.name, item.id, item.title || '', item.url || '', item.note || '']);
+        });
+      } else {
+        // アイテムなしのカテゴリも行を作成してカテゴリを保持
+        rows.push([cat.id, cat.name, '', '', '', '']);
+      }
+    });
+    if (rows.length > 0) {
+      procSheet.getRange(2, 1, rows.length, PROC_HEADERS.length).setValues(rows);
     }
   }
 

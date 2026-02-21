@@ -10,6 +10,7 @@ import './index.css'
 // ─── 定数 ───────────────────────────────────────────────
 const STORAGE_KEY   = 'hachiware-tasks-v1'
 const DASHBOARD_KEY = 'hachiware-dashboard-v1'
+const PROCEDURES_KEY = 'hachiware-procedures-v1'
 const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbwmyDrE_CAq7nxmFKkEWQd3LsNm33dbGAuY5F_IDx9SbTfi2EFIEH6cBA7OCBD05LN1tw/exec'
 
 const STATUS_CONFIG = {
@@ -689,6 +690,193 @@ function DashboardItemEditModal({ item, onSave, onClose }) {
   )
 }
 
+// ─── ProcedureItemEditModal ───────────────────────────────
+function ProcedureItemEditModal({ item, onSave, onClose }) {
+  const [title, setTitle] = useState(item.title || '')
+  const [url, setUrl]     = useState(item.url || '')
+  const [note, setNote]   = useState(item.note || '')
+
+  const handleSave = () => {
+    if (!url.trim() && !title.trim()) return
+    const cleanUrl = url.trim() ? (url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`) : ''
+    onSave({ title: title.trim(), url: cleanUrl, note: note.trim() })
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/25 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="relative bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-[#E8C8A0]/30 w-full sm:max-w-lg max-h-[85vh] overflow-y-auto flex flex-col"
+        style={{ background: 'linear-gradient(160deg, rgba(232,200,160,0.06) 0%, #ffffff 40%)' }}>
+        <div className="sticky top-0 bg-white/95 backdrop-blur-sm flex items-center justify-between px-6 py-4 border-b border-[#F0EBE3] z-10">
+          <h2 className="font-semibold text-gray-800 text-sm">編集</h2>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="p-6 flex flex-col gap-5 flex-1">
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">表示名</label>
+            <input type="text" value={title} onChange={e => setTitle(e.target.value)}
+              className="w-full text-sm font-medium px-4 py-2.5 rounded-xl border-2 border-[#E8C8A0]/40 bg-white focus:outline-none focus:ring-2 focus:ring-[#E8C8A0]/40 transition-all" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">URL</label>
+            <input type="text" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://"
+              className="w-full text-sm px-4 py-2.5 rounded-xl border border-[#E8C8A0]/30 bg-white focus:outline-none focus:ring-2 focus:ring-[#E8C8A0]/30 placeholder-gray-400 transition-all" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">備考</label>
+            <textarea value={note} onChange={e => setNote(e.target.value)} rows={3} placeholder="メモ・説明（任意）"
+              className="w-full text-sm px-4 py-2.5 rounded-xl border border-[#E8C8A0]/30 bg-white focus:outline-none focus:ring-2 focus:ring-[#E8C8A0]/30 placeholder-gray-400 resize-none" />
+          </div>
+        </div>
+        <div className="sticky bottom-0 bg-white/95 backdrop-blur-sm px-6 py-4 border-t border-[#F0EBE3] flex gap-3">
+          <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors">キャンセル</button>
+          <button onClick={handleSave} disabled={!url.trim() && !title.trim()}
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium bg-[#E8C8A0] text-[#6B4F2A] hover:bg-[#D4B086] disabled:opacity-40 transition-colors active:scale-95">
+            保存
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── ProcedureCategory ────────────────────────────────────
+function ProcedureCategory({ category, onAddItem, onDeleteItem, onEditItem, onDelete, onRename }) {
+  const [open, setOpen]             = useState(true)
+  const [addExpanded, setAddExpanded] = useState(false)
+  const [newTitle, setNewTitle]     = useState('')
+  const [newUrl, setNewUrl]         = useState('')
+  const [newNote, setNewNote]       = useState('')
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput]   = useState(category.name)
+
+  // カテゴリ名が外部で変わった時に追従
+  useEffect(() => { setNameInput(category.name) }, [category.name])
+
+  const handleAdd = () => {
+    if (!newUrl.trim() && !newTitle.trim()) return
+    const cleanUrl = newUrl.trim() ? (newUrl.trim().startsWith('http') ? newUrl.trim() : `https://${newUrl.trim()}`) : ''
+    onAddItem(category.id, { title: newTitle.trim(), url: cleanUrl, note: newNote.trim() })
+    setNewTitle(''); setNewUrl(''); setNewNote(''); setAddExpanded(false)
+  }
+
+  const commitRename = () => {
+    const v = nameInput.trim()
+    if (v) onRename(category.id, v)
+    else setNameInput(category.name)
+    setEditingName(false)
+  }
+
+  return (
+    <div className="relative pt-9">
+      <CatEarsDecor position="top-left" color="#E8C8A0" />
+      <div className="rounded-3xl border-2 border-[#E8C8A0] overflow-hidden">
+        {/* ヘッダー */}
+        <div className="flex items-end justify-between px-4 pb-2 pt-2" style={{ backgroundColor: '#E8C8A0', minHeight: 64 }}>
+          {editingName ? (
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <input value={nameInput} onChange={e => setNameInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') { setEditingName(false); setNameInput(category.name) } }}
+                autoFocus
+                className="flex-1 text-sm font-semibold px-2 py-1 rounded-lg bg-white/70 border border-white/80 focus:outline-none min-w-0" />
+              <button onClick={commitRename} className="p-1 text-gray-600 hover:text-gray-800 flex-shrink-0"><Check size={13} /></button>
+              <button onClick={() => { setEditingName(false); setNameInput(category.name) }} className="p-1 text-gray-500 flex-shrink-0"><X size={13} /></button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 font-semibold text-gray-700 text-sm flex-1 min-w-0">
+              <span className="text-base">📋</span>
+              <span className="truncate">{category.name}</span>
+              <span className="text-xs font-normal bg-white/70 px-2 py-0.5 rounded-full text-gray-500 flex-shrink-0">{category.items.length}件</span>
+            </div>
+          )}
+          <div className="flex items-center gap-0.5 flex-shrink-0 ml-2">
+            {!editingName && (
+              <button onClick={() => setEditingName(true)} className="p-1.5 text-gray-600 hover:text-gray-800 rounded hover:bg-white/30 transition-colors" title="名前を編集">
+                <Pencil size={11} />
+              </button>
+            )}
+            <button onClick={() => onDelete(category.id)} className="p-1.5 text-gray-600 hover:text-red-600 rounded hover:bg-white/30 transition-colors" title="カテゴリを削除">
+              <Trash2 size={11} />
+            </button>
+            <button onClick={() => setOpen(v => !v)} className="p-1.5 text-gray-600 rounded hover:bg-white/30 transition-colors">
+              {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            </button>
+          </div>
+        </div>
+
+        {open && (
+          <div className="bg-white px-4 pt-3 pb-4 flex flex-col gap-2">
+            {category.items.length === 0 && !addExpanded && (
+              <p className="text-xs text-gray-400 text-center py-1">リンクなし</p>
+            )}
+            {category.items.map(item => (
+              <div key={item.id} className="flex items-start gap-2 bg-gray-50 hover:bg-[#FAF7F2] rounded-xl px-3 py-2.5 group transition-colors">
+                <LinkSvgIcon size={12} className="text-[#B89060] mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  {item.url ? (
+                    <a href={item.url} target="_blank" rel="noopener noreferrer"
+                      className="text-sm text-[#8B6A3E] hover:underline font-medium leading-snug">
+                      {item.title || item.url}
+                    </a>
+                  ) : (
+                    <span className="text-sm text-gray-700 font-medium leading-snug">{item.title}</span>
+                  )}
+                  {item.note && (
+                    <p className="text-xs text-gray-500 mt-0.5 leading-snug whitespace-pre-line">{item.note}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
+                  <button onClick={() => onEditItem(item, category.id)}
+                    className="p-1 text-gray-400 hover:text-[#B89060] rounded hover:bg-[#E8C8A0]/20 transition-colors" title="編集">
+                    <Pencil size={11} />
+                  </button>
+                  <button onClick={() => onDeleteItem(category.id, item.id)}
+                    className="p-1 text-gray-400 hover:text-red-400 rounded hover:bg-red-50 transition-colors" title="削除">
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {/* 追加フォーム */}
+            {addExpanded ? (
+              <div className="flex flex-col gap-2 border border-gray-100 rounded-xl p-2.5 bg-gray-50/60 animate-[fade-in_0.2s_ease-out]">
+                <input value={newTitle} onChange={e => setNewTitle(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                  placeholder="表示名"
+                  className="text-sm px-3 py-1.5 rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#E8C8A0]/60 placeholder-gray-400" />
+                <input value={newUrl} onChange={e => setNewUrl(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                  placeholder="URL (https://...)"
+                  className="text-sm px-3 py-1.5 rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#E8C8A0]/60 placeholder-gray-400" />
+                <textarea value={newNote} onChange={e => setNewNote(e.target.value)}
+                  placeholder="備考（任意）" rows={2}
+                  className="text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#E8C8A0]/60 placeholder-gray-400 resize-none" />
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => { setAddExpanded(false); setNewTitle(''); setNewUrl(''); setNewNote('') }}
+                    className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 transition-colors">キャンセル</button>
+                  <button onClick={handleAdd} disabled={!newUrl.trim() && !newTitle.trim()}
+                    className="text-xs bg-[#E8C8A0] text-[#6B4F2A] hover:bg-[#D4B086] px-3 py-1.5 rounded-lg font-medium disabled:opacity-40 transition-colors">
+                    追加
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setAddExpanded(true)}
+                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#B89060] transition-colors py-0.5">
+                <Plus size={13} />リンクを追加
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── TaskInputForm ────────────────────────────────────────
 function TaskInputForm({ onAdd }) {
   const [title, setTitle]       = useState('')
@@ -934,6 +1122,11 @@ export default function App() {
   const [dashboard, setDashboard] = useState(() => {
     try { return JSON.parse(localStorage.getItem(DASHBOARD_KEY) ?? 'null') ?? { routine: [], adhoc: [], schedule: [] } } catch { return { routine: [], adhoc: [], schedule: [] } }
   })
+  const [procedures, setProcedures] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(PROCEDURES_KEY) ?? 'null') ?? { categories: [] } } catch { return { categories: [] } }
+  })
+  const [activeTab, setActiveTab]         = useState('tasks')
+  const [procOpen, setProcOpen]           = useState(true)
   const [dashboardOpen, setDashboardOpen] = useState(true)
   const [tasksOpen, setTasksOpen]         = useState(true)
   const [archiveOpen, setArchiveOpen]     = useState(false)
@@ -941,12 +1134,14 @@ export default function App() {
   const [filter, setFilter]               = useState('all')
   const [editingTask, setEditingTask]             = useState(null)
   const [editingDashItem, setEditingDashItem]     = useState(null) // { item, catId }
+  const [editingProcItem, setEditingProcItem]     = useState(null) // { item, catId }
   const [syncStatus, setSyncStatus]               = useState('loading')
   const [hasLoaded, setHasLoaded]                 = useState(false)
   const syncTimerRef = useRef(null)
 
   useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)) }, [tasks])
   useEffect(() => { localStorage.setItem(DASHBOARD_KEY, JSON.stringify(dashboard)) }, [dashboard])
+  useEffect(() => { localStorage.setItem(PROCEDURES_KEY, JSON.stringify(procedures)) }, [procedures])
 
   // Google Sheets から初回読み込み
   useEffect(() => {
@@ -978,13 +1173,11 @@ export default function App() {
                   const gasItems = data.dashboard[catId] || []
                   const localItems = prev[catId] || []
                   const gasIds = new Set(gasItems.map(i => i.id))
-                  // GASにないローカルアイテム（ロード中に追加されたもの）
                   const localOnly = localItems.filter(i => !gasIds.has(i.id))
                   merged[catId] = [
                     ...gasItems.map(gasItem => {
                       const localItem = localItems.find(i => i.id === gasItem.id)
                       if (!localItem) return gasItem
-                      // GASにrecurrenceがなく、ローカルにある場合はローカルを優先
                       if (localItem.recurrence?.type !== 'none' &&
                           (!gasItem.recurrence || gasItem.recurrence.type === 'none')) {
                         return { ...gasItem, recurrence: localItem.recurrence }
@@ -995,6 +1188,14 @@ export default function App() {
                   ]
                 })
                 return merged
+              })
+            }
+            // 手順書：GASデータを基本、ローカル追加分を保持
+            if (data.procedures && typeof data.procedures === 'object') {
+              setProcedures(prev => {
+                const gasCatIds = new Set((data.procedures.categories || []).map(c => c.id))
+                const localOnly = (prev.categories || []).filter(c => !gasCatIds.has(c.id))
+                return { categories: [...(data.procedures.categories || []), ...localOnly] }
               })
             }
           }
@@ -1018,7 +1219,7 @@ export default function App() {
         const res = await fetch(SHEETS_API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-          body: JSON.stringify({ tasks, dashboard, savedAt: new Date().toISOString() }),
+          body: JSON.stringify({ tasks, dashboard, procedures, savedAt: new Date().toISOString() }),
         })
         const result = await res.json()
         setSyncStatus(result?.ok ? 'synced' : 'error')
@@ -1026,7 +1227,7 @@ export default function App() {
         setSyncStatus('error')
       }
     }, 1500)
-  }, [tasks, dashboard, hasLoaded])
+  }, [tasks, dashboard, procedures, hasLoaded])
 
   const addTask = (fields) => {
     setTasks(prev => [{
@@ -1079,6 +1280,22 @@ export default function App() {
     setToast(TOAST_MSGS.edit)
   }
 
+  // ─── 手順書 CRUD ──────────────────────────────────────────
+  const addProcCategory = () =>
+    setProcedures(prev => ({ categories: [...prev.categories, { id: Date.now().toString(), name: '新しいカテゴリ', items: [] }] }))
+  const deleteProcCategory = (catId) =>
+    setProcedures(prev => ({ categories: prev.categories.filter(c => c.id !== catId) }))
+  const renameProcCategory = (catId, name) =>
+    setProcedures(prev => ({ categories: prev.categories.map(c => c.id !== catId ? c : { ...c, name }) }))
+  const addProcItem = (catId, fields) =>
+    setProcedures(prev => ({ categories: prev.categories.map(c => c.id !== catId ? c : { ...c, items: [...c.items, { id: Date.now().toString(), ...fields }] }) }))
+  const deleteProcItem = (catId, itemId) =>
+    setProcedures(prev => ({ categories: prev.categories.map(c => c.id !== catId ? c : { ...c, items: c.items.filter(i => i.id !== itemId) }) }))
+  const updateProcItem = (catId, itemId, fields) => {
+    setProcedures(prev => ({ categories: prev.categories.map(c => c.id !== catId ? c : { ...c, items: c.items.map(i => i.id !== itemId ? i : { ...i, ...fields }) }) }))
+    setToast(TOAST_MSGS.edit)
+  }
+
   const activeTasks    = tasks.filter(t => t.status !== 'done')
   const doneTasks      = tasks.filter(t => t.status === 'done').sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))
   const filteredActive = filter === 'all' ? activeTasks : activeTasks.filter(t => t.status === filter)
@@ -1088,8 +1305,8 @@ export default function App() {
     <div className="min-h-screen bg-[#FAF7F2] pb-20" style={{ fontFamily: "'Noto Sans JP', sans-serif" }}>
 
       {/* ヘッダー */}
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-[#A2C2D0]/25 shadow-[0_2px_12px_rgba(162,194,208,0.18)]">
-        <div className="max-w-4xl mx-auto px-6 py-3.5 flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md shadow-[0_2px_12px_rgba(162,194,208,0.18)]">
+        <div className="max-w-4xl mx-auto px-6 py-3.5 flex items-center justify-between border-b border-[#A2C2D0]/15">
           <div className="flex items-center gap-3.5">
             <div className="relative">
               <img src={catLogo} alt="Koto Note" className="w-10 h-10 object-contain" />
@@ -1111,9 +1328,64 @@ export default function App() {
             <SyncIndicator status={syncStatus} />
           </div>
         </div>
+        {/* タブナビゲーション */}
+        <div className="max-w-4xl mx-auto px-6 flex border-b border-[#A2C2D0]/25">
+          <button onClick={() => setActiveTab('tasks')}
+            className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-all ${
+              activeTab === 'tasks' ? 'border-[#A2C2D0] text-[#5AAAC5]' : 'border-transparent text-gray-400 hover:text-gray-600'
+            }`}>
+            ✔ タスク
+          </button>
+          <button onClick={() => setActiveTab('procedures')}
+            className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-all ${
+              activeTab === 'procedures' ? 'border-[#E8C8A0] text-[#B89060]' : 'border-transparent text-gray-400 hover:text-gray-600'
+            }`}>
+            📋 手順書
+          </button>
+        </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-7 flex flex-col gap-7">
+      {/* 手順書タブ */}
+      {activeTab === 'procedures' && (
+        <main className="max-w-4xl mx-auto px-6 py-7 flex flex-col gap-5">
+          <section>
+            <div className="flex items-center justify-between mb-5">
+              <button onClick={() => setProcOpen(v => !v)}
+                className="flex items-center gap-2 text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors tracking-widest uppercase">
+                <span className="text-base">📋</span>
+                手順書・資料
+                <span className="text-gray-300">{procOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}</span>
+              </button>
+              {procOpen && (
+                <button onClick={addProcCategory}
+                  className="flex items-center gap-1.5 text-xs text-[#B89060] hover:text-[#8B6A3E] font-medium transition-colors">
+                  <Plus size={13} />カテゴリを追加
+                </button>
+              )}
+            </div>
+            {procOpen && (
+              <div className="flex flex-col gap-5 animate-[fade-in_0.3s_ease-out]">
+                {procedures.categories.length === 0 ? (
+                  <div className="text-center py-14 flex flex-col items-center gap-3">
+                    <p className="text-4xl">📋</p>
+                    <p className="text-sm text-gray-400 font-medium">カテゴリを追加してリンクを整理しましょう</p>
+                  </div>
+                ) : (
+                  procedures.categories.map(cat => (
+                    <ProcedureCategory key={cat.id} category={cat}
+                      onAddItem={addProcItem} onDeleteItem={deleteProcItem}
+                      onEditItem={(item, catId) => setEditingProcItem({ item, catId })}
+                      onDelete={deleteProcCategory} onRename={renameProcCategory} />
+                  ))
+                )}
+              </div>
+            )}
+          </section>
+        </main>
+      )}
+
+      {/* タスク・ダッシュボードタブ */}
+      {activeTab === 'tasks' && <main className="max-w-4xl mx-auto px-6 py-7 flex flex-col gap-7">
 
         {/* ダッシュボード */}
         <section>
@@ -1213,7 +1485,7 @@ export default function App() {
             )}
           </section>
         )}
-      </main>
+      </main>}
 
       {/* タスク編集モーダル */}
       {editingTask && (
@@ -1230,6 +1502,15 @@ export default function App() {
           item={editingDashItem.item}
           onSave={fields => updateDashboardItem(editingDashItem.catId, editingDashItem.item.id, fields)}
           onClose={() => setEditingDashItem(null)}
+        />
+      )}
+
+      {/* 手順書アイテム編集モーダル */}
+      {editingProcItem && (
+        <ProcedureItemEditModal
+          item={editingProcItem.item}
+          onSave={fields => updateProcItem(editingProcItem.catId, editingProcItem.item.id, fields)}
+          onClose={() => setEditingProcItem(null)}
         />
       )}
 
