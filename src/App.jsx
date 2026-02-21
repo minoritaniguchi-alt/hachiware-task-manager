@@ -10,7 +10,7 @@ import './index.css'
 // ─── 定数 ───────────────────────────────────────────────
 const STORAGE_KEY   = 'hachiware-tasks-v1'
 const DASHBOARD_KEY = 'hachiware-dashboard-v1'
-const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbwrmni3TySRWl767CMklf_eRFi-OiRTVnfO6JnTic_gawBIiC9KCnBMDaPoOCubNI8l7Q/exec'
+const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbwxdxZ7SAp1Yr_geFIYDi56Uh186WcW-1Q5iSPPRC9SzhS5tvWjIRAioJtN6BpREcMxBA/exec'
 
 const STATUS_CONFIG = {
   doing:   { label: '💨 やってる！',   color: 'text-white bg-[#2863AB] border-[#1F4F8A]', dot: 'bg-white' },
