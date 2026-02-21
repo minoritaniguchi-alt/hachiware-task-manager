@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react'
 import {
   Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2,
   Clock, PauseCircle, Eye, Timer, Archive, RotateCcw,
@@ -145,11 +145,14 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
   const [details, setDetails] = useState('')
   const [links, setLinks] = useState([])
   const [formExpanded, setFormExpanded] = useState(false)
+  const linkInputRef = useRef(null)
 
   const handleAdd = () => {
     const v = input.trim()
     if (!v) return
-    onAdd(category.id, v, details.trim(), links)
+    const pendingLink = linkInputRef.current?.flush()
+    const allLinks = pendingLink ? [...links, pendingLink] : links
+    onAdd(category.id, v, details.trim(), allLinks)
     setInput(''); setDetails(''); setLinks([]); setFormExpanded(false)
   }
 
@@ -215,7 +218,7 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
                       </button>
                     </div>
                   ))}
-                  <LinkInputRow onAdd={link => setLinks(prev => [...prev, link])} />
+                  <LinkInputRow ref={linkInputRef} onAdd={link => setLinks(prev => [...prev, link])} />
                 </div>
                 <div className="flex justify-end">
                   <button type="button"
@@ -356,7 +359,7 @@ function TaskRow({ task, onStatusChange, onDelete, onToggleDone, onEdit }) {
 }
 
 // ─── リンク入力行（フォーム/モーダル共通）────────────────
-function LinkInputRow({ onAdd }) {
+const LinkInputRow = forwardRef(function LinkInputRow({ onAdd }, ref) {
   const [url, setUrl]     = useState('')
   const [title, setTitle] = useState('')
   const handleAdd = () => {
@@ -365,6 +368,16 @@ function LinkInputRow({ onAdd }) {
     onAdd({ id: Date.now().toString(), url: u.startsWith('http') ? u : `https://${u}`, title: title.trim() || u })
     setUrl(''); setTitle('')
   }
+  // 未コミットのリンクを返す（保存ボタン押下時に呼び出す）
+  useImperativeHandle(ref, () => ({
+    flush: () => {
+      const u = url.trim()
+      if (!u) return null
+      const link = { id: Date.now().toString(), url: u.startsWith('http') ? u : `https://${u}`, title: title.trim() || u }
+      setUrl(''); setTitle('')
+      return link
+    }
+  }), [url, title])
   return (
     <div className="flex gap-1.5 items-center">
       <input
@@ -384,7 +397,7 @@ function LinkInputRow({ onAdd }) {
       </button>
     </div>
   )
-}
+})
 
 // ─── DashboardItemEditModal ───────────────────────────────
 function DashboardItemEditModal({ item, onSave, onClose }) {
@@ -392,10 +405,13 @@ function DashboardItemEditModal({ item, onSave, onClose }) {
   const [details, setDetails] = useState(item.details || '')
   const [memo, setMemo]       = useState(item.memo || '')
   const [links, setLinks]     = useState(item.links || [])
+  const linkInputRef = useRef(null)
 
   const handleSave = () => {
     if (!title.trim()) return
-    onSave({ title: title.trim(), details: details.trim(), memo: memo.trim(), links })
+    const pendingLink = linkInputRef.current?.flush()
+    const allLinks = pendingLink ? [...links, pendingLink] : links
+    onSave({ title: title.trim(), details: details.trim(), memo: memo.trim(), links: allLinks })
     onClose()
   }
 
@@ -443,7 +459,7 @@ function DashboardItemEditModal({ item, onSave, onClose }) {
                 </div>
               ))}
             </div>
-            <LinkInputRow onAdd={link => setLinks(prev => [...prev, link])} />
+            <LinkInputRow ref={linkInputRef} onAdd={link => setLinks(prev => [...prev, link])} />
           </div>
         </div>
 
@@ -474,12 +490,15 @@ function TaskInputForm({ onAdd }) {
   const [expanded, setExpanded] = useState(false)
   const inputRef = useRef(null)
   const suppressExpand = useRef(false)
+  const linkInputRef = useRef(null)
 
   const handleSubmit = (e) => {
     e.preventDefault()
     const v = title.trim()
     if (!v) return
-    onAdd({ title: v, details: details.trim(), memo: memo.trim(), status, dueDate, links })
+    const pendingLink = linkInputRef.current?.flush()
+    const allLinks = pendingLink ? [...links, pendingLink] : links
+    onAdd({ title: v, details: details.trim(), memo: memo.trim(), status, dueDate, links: allLinks })
     setTitle(''); setDetails(''); setMemo(''); setStatus('doing')
     setDueDate(''); setLinks([]); setExpanded(false)
     suppressExpand.current = true
@@ -546,7 +565,7 @@ function TaskInputForm({ onAdd }) {
                       </button>
                     </div>
                   ))}
-                  <LinkInputRow onAdd={link => setLinks(prev => [...prev, link])} />
+                  <LinkInputRow ref={linkInputRef} onAdd={link => setLinks(prev => [...prev, link])} />
                 </div>
 
                 {/* ステータス・期限 */}
@@ -579,10 +598,13 @@ function TaskEditModal({ task, onSave, onClose }) {
   const [status, setStatus]     = useState(task.status || 'doing')
   const [dueDate, setDueDate]   = useState(task.dueDate || '')
   const [links, setLinks]       = useState(task.links || [])
+  const linkInputRef = useRef(null)
 
   const handleSave = () => {
     if (!title.trim()) return
-    onSave(task.id, { title: title.trim(), details: details.trim(), memo: memo.trim(), status, dueDate, links })
+    const pendingLink = linkInputRef.current?.flush()
+    const allLinks = pendingLink ? [...links, pendingLink] : links
+    onSave(task.id, { title: title.trim(), details: details.trim(), memo: memo.trim(), status, dueDate, links: allLinks })
     onClose()
   }
 
@@ -658,7 +680,7 @@ function TaskEditModal({ task, onSave, onClose }) {
                 </div>
               ))}
             </div>
-            <LinkInputRow onAdd={link => setLinks(prev => [...prev, link])} />
+            <LinkInputRow ref={linkInputRef} onAdd={link => setLinks(prev => [...prev, link])} />
           </div>
         </div>
 
