@@ -11,7 +11,7 @@ import './index.css'
 const STORAGE_KEY   = 'hachiware-tasks-v1'
 const DASHBOARD_KEY = 'hachiware-dashboard-v1'
 const PROCEDURES_KEY = 'hachiware-procedures-v1'
-const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbwmyDrE_CAq7nxmFKkEWQd3LsNm33dbGAuY5F_IDx9SbTfi2EFIEH6cBA7OCBD05LN1tw/exec'
+const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbx3KRrjrsAaogfMUSKI5y1advs80kqK-HSWYLqBDgz8c_bIoat7T7udOJFIHj_84wCgIQ/exec'
 
 const STATUS_CONFIG = {
   doing:   { label: '💨 やってる！',   color: 'text-white bg-[#2863AB] border-[#1F4F8A]', dot: 'bg-white' },
