@@ -403,7 +403,6 @@ const LinkInputRow = forwardRef(function LinkInputRow({ onAdd }, ref) {
 function DashboardItemEditModal({ item, onSave, onClose }) {
   const [title, setTitle]     = useState(item.text || '')
   const [details, setDetails] = useState(item.details || '')
-  const [memo, setMemo]       = useState(item.memo || '')
   const [links, setLinks]     = useState(item.links || [])
   const linkInputRef = useRef(null)
 
@@ -411,7 +410,7 @@ function DashboardItemEditModal({ item, onSave, onClose }) {
     if (!title.trim()) return
     const pendingLink = linkInputRef.current?.flush()
     const allLinks = pendingLink ? [...links, pendingLink] : links
-    onSave({ title: title.trim(), details: details.trim(), memo: memo.trim(), links: allLinks })
+    onSave({ title: title.trim(), details: details.trim(), memo: item.memo || '', links: allLinks })
     onClose()
   }
 
@@ -422,7 +421,7 @@ function DashboardItemEditModal({ item, onSave, onClose }) {
         style={{ background: 'linear-gradient(160deg, rgba(162,194,208,0.06) 0%, #ffffff 40%)' }}>
 
         <div className="sticky top-0 bg-white/95 backdrop-blur-sm flex items-center justify-between px-6 py-4 border-b border-[#F0EBE3] z-10">
-          <h2 className="font-semibold text-gray-800 text-sm">詳細編集</h2>
+          <h2 className="font-semibold text-gray-800 text-sm">編集</h2>
           <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
             <X size={16} />
           </button>
@@ -430,22 +429,17 @@ function DashboardItemEditModal({ item, onSave, onClose }) {
 
         <div className="p-6 flex flex-col gap-5 flex-1">
           <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">タイトル</label>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">業務名</label>
             <input type="text" value={title} onChange={e => setTitle(e.target.value)}
               className="w-full text-sm font-medium px-4 py-2.5 rounded-xl border-2 border-[#A2C2D0]/25 bg-white focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/40 focus:border-[#A2C2D0]/50 transition-all" />
           </div>
           <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">詳細</label>
-            <textarea value={details} onChange={e => setDetails(e.target.value)} rows={3} placeholder="タスクの詳細"
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">業務詳細</label>
+            <textarea value={details} onChange={e => setDetails(e.target.value)} rows={3} placeholder="業務の詳細（任意）"
               className="w-full text-sm px-4 py-2.5 rounded-xl border border-[#A2C2D0]/20 bg-white focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/30 placeholder-gray-400 resize-none" />
           </div>
           <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">進捗メモ</label>
-            <textarea value={memo} onChange={e => setMemo(e.target.value)} rows={3} placeholder="備考・進捗状況"
-              className="w-full text-sm px-4 py-2.5 rounded-xl border border-[#A2C2D0]/20 bg-white focus:outline-none focus:ring-2 focus:ring-[#A2C2D0]/30 placeholder-gray-400 resize-none" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">関連リンク</label>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">リンク</label>
             <div className="flex flex-col gap-1.5 mb-2">
               {links.map(link => (
                 <div key={link.id} className="flex items-center gap-2 px-3 py-2 bg-[#F8F4F0] rounded-lg border border-[#A2C2D0]/15 group">
