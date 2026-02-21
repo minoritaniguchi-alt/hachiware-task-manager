@@ -1015,12 +1015,13 @@ export default function App() {
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
     syncTimerRef.current = setTimeout(async () => {
       try {
-        await fetch(SHEETS_API_URL, {
+        const res = await fetch(SHEETS_API_URL, {
           method: 'POST',
-          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
           body: JSON.stringify({ tasks, dashboard, savedAt: new Date().toISOString() }),
         })
-        setSyncStatus('synced')
+        const result = await res.json()
+        setSyncStatus(result?.ok ? 'synced' : 'error')
       } catch {
         setSyncStatus('error')
       }
