@@ -10,7 +10,7 @@ import './index.css'
 // ─── 定数 ───────────────────────────────────────────────
 const STORAGE_KEY   = 'hachiware-tasks-v1'
 const DASHBOARD_KEY = 'hachiware-dashboard-v1'
-const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbzdBCwRfaW31oVqhOuvOP9VGQSQL7JI_FL7GQ7A81JAELSPdxNI_5W5_q5UpbIcBF2xXA/exec'
+const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbwrmni3TySRWl767CMklf_eRFi-OiRTVnfO6JnTic_gawBIiC9KCnBMDaPoOCubNI8l7Q/exec'
 
 const STATUS_CONFIG = {
   doing:   { label: '💨 やってる！',   color: 'text-white bg-[#2863AB] border-[#1F4F8A]', dot: 'bg-white' },
@@ -796,8 +796,13 @@ export default function App() {
         const text = await res.text()
         if (text && text.trim() !== '{}') {
           const data = JSON.parse(text)
-          if (Array.isArray(data.tasks)) setTasks(data.tasks)
-          if (data.dashboard && typeof data.dashboard === 'object') setDashboard(data.dashboard)
+          // スプレッドシートが空（初回・移行直後）の場合はローカルデータを保持する
+          const isEmpty = Array.isArray(data.tasks) && data.tasks.length === 0 &&
+            data.dashboard && Object.values(data.dashboard).every(arr => Array.isArray(arr) && arr.length === 0)
+          if (!isEmpty) {
+            if (Array.isArray(data.tasks)) setTasks(data.tasks)
+            if (data.dashboard && typeof data.dashboard === 'object') setDashboard(data.dashboard)
+          }
         }
         setSyncStatus('synced')
       } catch {
