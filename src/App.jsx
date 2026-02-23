@@ -1351,16 +1351,18 @@ export default function App() {
             ダッシュボード
           </button>
           <button onClick={() => setActiveTab('tasks')}
-            className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-all ${
+            className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-all flex items-center gap-1.5 ${
               activeTab === 'tasks' ? 'border-[#A0C8DC] text-[#4AAAC5]' : 'border-transparent text-gray-400 hover:text-gray-600'
             }`}>
-            ✔ タスク
+            <img src={catLogo} alt="" className="w-5 h-5 object-contain" />
+            タスク
           </button>
           <button onClick={() => setActiveTab('procedures')}
-            className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-all ${
+            className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-all flex items-center gap-1.5 ${
               activeTab === 'procedures' ? 'border-[#F4C4D0] text-[#C07090]' : 'border-transparent text-gray-400 hover:text-gray-600'
             }`}>
-            📋 手順書
+            <img src={catLogo} alt="" className="w-5 h-5 object-contain" />
+            手順書
           </button>
         </div>
       </header>
