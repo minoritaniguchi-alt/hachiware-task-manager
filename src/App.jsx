@@ -9,6 +9,13 @@ import catBlack from './assets/cat_black.png'
 import catOrange from './assets/cat_orange.png'
 import './index.css'
 
+// ─── ユーティリティ ──────────────────────────────────────
+const normalizeUrl = (url) => {
+  const u = url.trim()
+  if (!u) return ''
+  return u.startsWith('http') ? u : `https://${u}`
+}
+
 // ─── 定数 ───────────────────────────────────────────────
 const STORAGE_KEY   = 'hachiware-tasks-v1'
 const DASHBOARD_KEY = 'hachiware-dashboard-v1'
@@ -540,7 +547,7 @@ function EditableLinkList({ links, onChange }) {
     const u = editUrl.trim()
     if (!u) return
     onChange(links.map(l => l.id === id
-      ? { ...l, url: u.startsWith('http') ? u : `https://${u}`, title: editTitle.trim() || u }
+      ? { ...l, url: normalizeUrl(u), title: editTitle.trim() || u }
       : l
     ))
     setEditingId(null)
@@ -598,22 +605,26 @@ function EditableLinkList({ links, onChange }) {
 const LinkInputRow = forwardRef(function LinkInputRow({ onAdd }, ref) {
   const [url, setUrl]     = useState('')
   const [title, setTitle] = useState('')
+  const urlRef   = useRef(url)
+  const titleRef = useRef(title)
+  urlRef.current   = url
+  titleRef.current = title
   const handleAdd = () => {
     const u = url.trim()
     if (!u) return
-    onAdd({ id: crypto.randomUUID(), url: u.startsWith('http') ? u : `https://${u}`, title: title.trim() || u })
+    onAdd({ id: crypto.randomUUID(), url: normalizeUrl(u), title: title.trim() || u })
     setUrl(''); setTitle('')
   }
   // 未コミットのリンクを返す（保存ボタン押下時に呼び出す）
   useImperativeHandle(ref, () => ({
     flush: () => {
-      const u = url.trim()
+      const u = urlRef.current.trim()
       if (!u) return null
-      const link = { id: crypto.randomUUID(), url: u.startsWith('http') ? u : `https://${u}`, title: title.trim() || u }
+      const link = { id: crypto.randomUUID(), url: normalizeUrl(u), title: titleRef.current.trim() || u }
       setUrl(''); setTitle('')
       return link
     }
-  }), [url, title])
+  }), [])
   return (
     <div className="flex gap-1.5 items-center">
       <input
@@ -719,7 +730,7 @@ function ProcedureItemEditModal({ item, onSave, onClose }) {
 
   const handleSave = () => {
     if (!url.trim() && !title.trim()) return
-    const cleanUrl = url.trim() ? (url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`) : ''
+    const cleanUrl = normalizeUrl(url)
     onSave({ title: title.trim(), url: cleanUrl, note: note.trim() })
     onClose()
   }
@@ -781,7 +792,7 @@ function ProcedureCategory({ category, onAddItem, onDeleteItem, onEditItem, onDe
 
   const handleAdd = () => {
     if (!newUrl.trim() && !newTitle.trim()) return
-    const cleanUrl = newUrl.trim() ? (newUrl.trim().startsWith('http') ? newUrl.trim() : `https://${newUrl.trim()}`) : ''
+    const cleanUrl = normalizeUrl(newUrl)
     onAddItem(category.id, { title: newTitle.trim(), url: cleanUrl, note: newNote.trim() })
     setNewTitle(''); setNewUrl(''); setNewNote(''); setAddExpanded(false)
   }
@@ -1344,10 +1355,10 @@ export default function App() {
     setToast(TOAST_MSGS.edit)
   }
 
-  const activeTasks    = tasks.filter(t => t.status !== 'done')
-  const doneTasks      = tasks.filter(t => t.status === 'done').sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))
-  const filteredActive = filter === 'all' ? activeTasks : activeTasks.filter(t => t.status === filter)
-  const todayDone      = doneTasks.filter(t => t.completedAt && new Date(t.completedAt).toDateString() === new Date().toDateString()).length
+  const activeTasks    = useMemo(() => tasks.filter(t => t.status !== 'done'), [tasks])
+  const doneTasks      = useMemo(() => tasks.filter(t => t.status === 'done').sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt)), [tasks])
+  const filteredActive = useMemo(() => filter === 'all' ? activeTasks : activeTasks.filter(t => t.status === filter), [activeTasks, filter])
+  const todayDone      = useMemo(() => doneTasks.filter(t => t.completedAt && new Date(t.completedAt).toDateString() === new Date().toDateString()).length, [doneTasks])
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] pb-20" style={{ fontFamily: "'Noto Sans JP', sans-serif" }}>
