@@ -5,6 +5,8 @@ import {
   Pencil, X, Check, Link as LinkIcon, Cloud, CloudOff
 } from 'lucide-react'
 import catLogo from './assets/cat_Image.png'
+import catBlack from './assets/cat_black.png'
+import catOrange from './assets/cat_orange.png'
 import './index.css'
 
 // ─── 定数 ───────────────────────────────────────────────
@@ -1347,7 +1349,7 @@ export default function App() {
             className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-all flex items-center gap-1.5 ${
               activeTab === 'dashboard' ? 'border-[#A0C8DC] text-[#4AAAC5]' : 'border-transparent text-gray-400 hover:text-gray-600'
             }`}>
-            <img src={catLogo} alt="" className="w-5 h-5 object-contain" />
+            <img src={catBlack} alt="" className="w-5 h-5 object-contain" />
             ダッシュボード
           </button>
           <button onClick={() => setActiveTab('tasks')}
@@ -1361,7 +1363,7 @@ export default function App() {
             className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-all flex items-center gap-1.5 ${
               activeTab === 'procedures' ? 'border-[#F4C4D0] text-[#C07090]' : 'border-transparent text-gray-400 hover:text-gray-600'
             }`}>
-            <img src={catLogo} alt="" className="w-5 h-5 object-contain" />
+            <img src={catOrange} alt="" className="w-5 h-5 object-contain" />
             手順書
           </button>
         </div>
