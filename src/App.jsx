@@ -137,6 +137,12 @@ function StatusBadge({ status, onChange }) {
     }
     setOpen(true)
   }
+  useEffect(() => {
+    if (!open) return
+    const h = (e) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [open])
 
   return (
     <>
@@ -595,7 +601,7 @@ const LinkInputRow = forwardRef(function LinkInputRow({ onAdd }, ref) {
   const handleAdd = () => {
     const u = url.trim()
     if (!u) return
-    onAdd({ id: Date.now().toString(), url: u.startsWith('http') ? u : `https://${u}`, title: title.trim() || u })
+    onAdd({ id: crypto.randomUUID(), url: u.startsWith('http') ? u : `https://${u}`, title: title.trim() || u })
     setUrl(''); setTitle('')
   }
   // 未コミットのリンクを返す（保存ボタン押下時に呼び出す）
@@ -603,7 +609,7 @@ const LinkInputRow = forwardRef(function LinkInputRow({ onAdd }, ref) {
     flush: () => {
       const u = url.trim()
       if (!u) return null
-      const link = { id: Date.now().toString(), url: u.startsWith('http') ? u : `https://${u}`, title: title.trim() || u }
+      const link = { id: crypto.randomUUID(), url: u.startsWith('http') ? u : `https://${u}`, title: title.trim() || u }
       setUrl(''); setTitle('')
       return link
     }
@@ -636,6 +642,11 @@ function DashboardItemEditModal({ item, onSave, onClose }) {
   const [links, setLinks]         = useState(item.links || [])
   const [recurrence, setRecurrence] = useState(item.recurrence || { type: 'none' })
   const linkInputRef = useRef(null)
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [onClose])
 
   const handleSave = () => {
     if (!title.trim()) return
@@ -697,6 +708,11 @@ function DashboardItemEditModal({ item, onSave, onClose }) {
 
 // ─── ProcedureItemEditModal ───────────────────────────────
 function ProcedureItemEditModal({ item, onSave, onClose }) {
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [onClose])
   const [title, setTitle] = useState(item.title || '')
   const [url, setUrl]     = useState(item.url || '')
   const [note, setNote]   = useState(item.note || '')
@@ -1006,6 +1022,11 @@ function TaskEditModal({ task, onSave, onClose }) {
   const [dueDate, setDueDate]   = useState(task.dueDate || '')
   const [links, setLinks]       = useState(task.links || [])
   const linkInputRef = useRef(null)
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [onClose])
 
   const handleSave = () => {
     if (!title.trim()) return
@@ -1165,17 +1186,27 @@ export default function App() {
         const res = await fetch(`${SHEETS_API_URL}?t=${Date.now()}`)
         const text = await res.text()
         if (text && text.trim() !== '{}') {
-          const data = JSON.parse(text)
+          let data
+          try { data = JSON.parse(text) } catch { setSyncStatus('error'); setHasLoaded(true); return }
+          if (!data) { setSyncStatus('error'); setHasLoaded(true); return }
           // スプレッドシートが空（初回・移行直後）の場合はローカルデータを保持する
           const isEmpty = Array.isArray(data.tasks) && data.tasks.length === 0 &&
             data.dashboard && Object.values(data.dashboard).every(arr => Array.isArray(arr) && arr.length === 0)
           if (!isEmpty) {
-            // タスク：GASにないローカルのタスク（ロード中に追加されたもの）を保持
+            // タスク：GASにないローカルのタスクを保持 + updatedAtで新しい方を優先
             if (Array.isArray(data.tasks)) {
               setTasks(prev => {
+                const localMap = new Map(prev.map(t => [t.id, t]))
                 const gasIds = new Set(data.tasks.map(t => t.id))
                 const localOnly = prev.filter(t => !gasIds.has(t.id))
-                return [...data.tasks, ...localOnly]
+                const merged = data.tasks.map(gasTask => {
+                  const local = localMap.get(gasTask.id)
+                  if (!local) return gasTask
+                  const gasTime = gasTask.updatedAt || gasTask.createdAt || ''
+                  const localTime = local.updatedAt || local.createdAt || ''
+                  return localTime > gasTime ? local : gasTask
+                })
+                return [...merged, ...localOnly]
               })
             }
             // ダッシュボード：GASデータを基本としつつ、ロード中の変更やrecurrenceを保持
@@ -1245,12 +1276,13 @@ export default function App() {
   }, [tasks, dashboard, procedures, hasLoaded])
 
   const addTask = (fields) => {
+    const now = new Date().toISOString()
     setTasks(prev => [{
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       title: fields.title, details: fields.details || '', memo: fields.memo || '',
       status: fields.status, dueDate: fields.dueDate || '',
       links: fields.links || [],
-      createdAt: new Date().toISOString(), completedAt: null,
+      createdAt: now, updatedAt: now, completedAt: null,
     }, ...prev])
     setToast(TOAST_MSGS.add)
   }
@@ -1258,6 +1290,7 @@ export default function App() {
   const editTask = (id, fields) => {
     setTasks(prev => prev.map(t => t.id !== id ? t : {
       ...t, ...fields,
+      updatedAt: new Date().toISOString(),
       completedAt: fields.status === 'done' && t.status !== 'done' ? new Date().toISOString()
                  : fields.status !== 'done' ? null : t.completedAt,
     }))
@@ -1282,7 +1315,7 @@ export default function App() {
   const deleteTask = (id) => setTasks(prev => prev.filter(t => t.id !== id))
 
   const addDashboardItem = (catId, text, details = '', links = [], recurrence = { type: 'none' }) =>
-    setDashboard(prev => ({ ...prev, [catId]: [...(prev[catId] || []), { id: Date.now().toString(), text, details, memo: '', links, recurrence }] }))
+    setDashboard(prev => ({ ...prev, [catId]: [...(prev[catId] || []), { id: crypto.randomUUID(), text, details, memo: '', links, recurrence }] }))
   const deleteDashboardItem = (catId, itemId) =>
     setDashboard(prev => ({ ...prev, [catId]: (prev[catId] || []).filter(i => i.id !== itemId) }))
   const updateDashboardItem = (catId, itemId, fields) => {
@@ -1297,13 +1330,13 @@ export default function App() {
 
   // ─── 手順書 CRUD ──────────────────────────────────────────
   const addProcCategory = () =>
-    setProcedures(prev => ({ categories: [...prev.categories, { id: Date.now().toString(), name: '新しいカテゴリ', items: [] }] }))
+    setProcedures(prev => ({ categories: [...prev.categories, { id: crypto.randomUUID(), name: '新しいカテゴリ', items: [] }] }))
   const deleteProcCategory = (catId) =>
     setProcedures(prev => ({ categories: prev.categories.filter(c => c.id !== catId) }))
   const renameProcCategory = (catId, name) =>
     setProcedures(prev => ({ categories: prev.categories.map(c => c.id !== catId ? c : { ...c, name }) }))
   const addProcItem = (catId, fields) =>
-    setProcedures(prev => ({ categories: prev.categories.map(c => c.id !== catId ? c : { ...c, items: [...c.items, { id: Date.now().toString(), ...fields }] }) }))
+    setProcedures(prev => ({ categories: prev.categories.map(c => c.id !== catId ? c : { ...c, items: [...c.items, { id: crypto.randomUUID(), ...fields }] }) }))
   const deleteProcItem = (catId, itemId) =>
     setProcedures(prev => ({ categories: prev.categories.map(c => c.id !== catId ? c : { ...c, items: c.items.filter(i => i.id !== itemId) }) }))
   const updateProcItem = (catId, itemId, fields) => {
