@@ -1426,12 +1426,12 @@ export default function App() {
         {/* アクティブタスク */}
         <section>
           <div className="relative pt-9">
-            <CatEarsDecor position="top-left" color="#E4D4F8" />
-            <div className="rounded-3xl border-2 border-[#E4D4F8] overflow-hidden">
+            <CatEarsDecor position="top-left" color="#A8D8EC" />
+            <div className="rounded-3xl border-2 border-[#A8D8EC] overflow-hidden">
 
               {/* ヘッダー */}
               <button onClick={() => setTasksOpen(v => !v)} className="w-full">
-                <div className="flex items-end justify-between px-4 pb-2 pt-2" style={{ backgroundColor: '#E4D4F8', minHeight: 64 }}>
+                <div className="flex items-end justify-between px-4 pb-2 pt-2" style={{ background: 'linear-gradient(to right, #A8D8EC, #F8EBB0)', minHeight: 64 }}>
                   <div className="flex items-center gap-2 font-semibold text-gray-700 text-sm">
                     ✔ タスク
                     <span className="text-xs font-normal bg-white/70 px-2 py-0.5 rounded-full text-gray-500">
