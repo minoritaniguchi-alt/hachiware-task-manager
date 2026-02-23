@@ -913,12 +913,12 @@ function TaskInputForm({ onAdd }) {
 
   return (
     <div className="relative pt-9">
-      <CatEarsDecor position="top-center" color="#E0F2FF" />
-      <div className="rounded-3xl border-2 border-[#E0F2FF] overflow-hidden">
+      <CatEarsDecor position="top-center" color="#A8D8EC" />
+      <div className="rounded-3xl border-2 border-[#A8D8EC] overflow-hidden">
 
         {/* ヘッダー */}
         <button onClick={() => { setOpen(v => !v); if (open) setExpanded(false) }} className="w-full">
-          <div className="flex items-end justify-between px-4 pb-2 pt-2" style={{ backgroundColor: '#E0F2FF', minHeight: 64 }}>
+          <div className="flex items-end justify-between px-4 pb-2 pt-2" style={{ background: 'linear-gradient(to right, #A8D8EC, #F8EBB0)', minHeight: 64 }}>
             <div className="flex items-center gap-2 font-semibold text-gray-700 text-sm">
               <span className="text-base">✏️</span>
               タスクを追加
