@@ -1132,9 +1132,9 @@ export default function App() {
   const [procedures, setProcedures] = useState(() => {
     try { return JSON.parse(localStorage.getItem(PROCEDURES_KEY) ?? 'null') ?? { categories: [] } } catch { return { categories: [] } }
   })
-  const [activeTab, setActiveTab]         = useState('tasks')
+  const [activeTab, setActiveTab]         = useState('dashboard')
   const [procOpen, setProcOpen]           = useState(true)
-  const [dashboardOpen, setDashboardOpen] = useState(true)
+
   const [tasksOpen, setTasksOpen]         = useState(true)
   const [archiveOpen, setArchiveOpen]     = useState(false)
   const [toast, setToast]                 = useState(null)
@@ -1343,6 +1343,12 @@ export default function App() {
         </div>
         {/* タブナビゲーション */}
         <div className="max-w-4xl mx-auto px-6 flex border-b border-[#A0C8DC]/25">
+          <button onClick={() => setActiveTab('dashboard')}
+            className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-all ${
+              activeTab === 'dashboard' ? 'border-[#A0C8DC] text-[#4AAAC5]' : 'border-transparent text-gray-400 hover:text-gray-600'
+            }`}>
+            🐱 ダッシュボード
+          </button>
           <button onClick={() => setActiveTab('tasks')}
             className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-all ${
               activeTab === 'tasks' ? 'border-[#A0C8DC] text-[#4AAAC5]' : 'border-transparent text-gray-400 hover:text-gray-600'
@@ -1398,27 +1404,21 @@ export default function App() {
         </main>
       )}
 
-      {/* タスク・ダッシュボードタブ */}
-      {activeTab === 'tasks' && <main className="max-w-4xl mx-auto px-6 py-7 flex flex-col gap-7">
+      {/* ダッシュボードタブ */}
+      {activeTab === 'dashboard' && (
+        <main className="max-w-4xl mx-auto px-6 py-7">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-[fade-in_0.3s_ease-out]">
+            {DASHBOARD_CATEGORIES.map(cat => (
+              <DashboardCard key={cat.id} category={cat} items={dashboard[cat.id] || []}
+                onAdd={addDashboardItem} onDelete={deleteDashboardItem}
+                onEdit={(item, catId) => setEditingDashItem({ item, catId })} />
+            ))}
+          </div>
+        </main>
+      )}
 
-        {/* ダッシュボード */}
-        <section>
-          <button onClick={() => setDashboardOpen(v => !v)}
-            className="flex items-center gap-2 text-xs font-semibold text-gray-500 hover:text-gray-700 mb-5 transition-colors tracking-widest uppercase">
-            <img src={catLogo} alt="" className="w-5 h-5 object-contain" />
-            ダッシュボード
-            <span className="text-gray-300">{dashboardOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}</span>
-          </button>
-          {dashboardOpen && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-[fade-in_0.3s_ease-out]">
-              {DASHBOARD_CATEGORIES.map(cat => (
-                <DashboardCard key={cat.id} category={cat} items={dashboard[cat.id] || []}
-                  onAdd={addDashboardItem} onDelete={deleteDashboardItem}
-                  onEdit={(item, catId) => setEditingDashItem({ item, catId })} />
-              ))}
-            </div>
-          )}
-        </section>
+      {/* タスクタブ */}
+      {activeTab === 'tasks' && <main className="max-w-4xl mx-auto px-6 py-7 flex flex-col gap-7">
 
         {/* タスク入力 */}
         <section><TaskInputForm onAdd={addTask} /></section>
