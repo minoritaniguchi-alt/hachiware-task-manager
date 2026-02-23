@@ -920,7 +920,7 @@ function TaskInputForm({ onAdd }) {
 
         {/* ヘッダー */}
         <button onClick={() => { setOpen(v => !v); if (open) setExpanded(false) }} className="w-full">
-          <div className="flex items-end justify-between px-4 pb-2 pt-2" style={{ background: 'linear-gradient(to right, #A8D8EC, #F8EBB0)', minHeight: 64 }}>
+          <div className="flex items-end justify-between px-4 pb-2 pt-2" style={{ backgroundColor: '#A8D8EC', minHeight: 64 }}>
             <div className="flex items-center gap-2 font-semibold text-gray-700 text-sm">
               <span className="text-base">✏️</span>
               タスクを追加
@@ -1135,7 +1135,7 @@ export default function App() {
     try { return JSON.parse(localStorage.getItem(PROCEDURES_KEY) ?? 'null') ?? { categories: [] } } catch { return { categories: [] } }
   })
   const [activeTab, setActiveTab]         = useState('dashboard')
-  const [procOpen, setProcOpen]           = useState(true)
+
 
   const [tasksOpen, setTasksOpen]         = useState(true)
   const [archiveOpen, setArchiveOpen]     = useState(false)
@@ -1347,21 +1347,21 @@ export default function App() {
         <div className="max-w-4xl mx-auto px-6 flex border-b border-[#A0C8DC]/25">
           <button onClick={() => setActiveTab('dashboard')}
             className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-all flex items-center gap-1.5 ${
-              activeTab === 'dashboard' ? 'border-[#A0C8DC] text-[#4AAAC5]' : 'border-transparent text-gray-400 hover:text-gray-600'
+              activeTab === 'dashboard' ? 'border-[#9B80C8] text-[#9B80C8]' : 'border-transparent text-gray-400 hover:text-gray-600'
             }`}>
             <img src={catBlack} alt="" className="w-5 h-5 object-contain" />
             ダッシュボード
           </button>
           <button onClick={() => setActiveTab('tasks')}
             className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-all flex items-center gap-1.5 ${
-              activeTab === 'tasks' ? 'border-[#A0C8DC] text-[#4AAAC5]' : 'border-transparent text-gray-400 hover:text-gray-600'
+              activeTab === 'tasks' ? 'border-[#4AAAC5] text-[#4AAAC5]' : 'border-transparent text-gray-400 hover:text-gray-600'
             }`}>
             <img src={catLogo} alt="" className="w-5 h-5 object-contain" />
             タスク
           </button>
           <button onClick={() => setActiveTab('procedures')}
             className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-all flex items-center gap-1.5 ${
-              activeTab === 'procedures' ? 'border-[#F4C4D0] text-[#C07090]' : 'border-transparent text-gray-400 hover:text-gray-600'
+              activeTab === 'procedures' ? 'border-[#C07090] text-[#C07090]' : 'border-transparent text-gray-400 hover:text-gray-600'
             }`}>
             <img src={catOrange} alt="" className="w-5 h-5 object-contain" />
             手順書
@@ -1373,38 +1373,28 @@ export default function App() {
       {activeTab === 'procedures' && (
         <main className="max-w-4xl mx-auto px-6 py-7 flex flex-col gap-5">
           <section>
-            <div className="flex items-center justify-between mb-5">
-              <button onClick={() => setProcOpen(v => !v)}
-                className="flex items-center gap-2 text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors tracking-widest uppercase">
-                <span className="text-base">📋</span>
-                手順書・資料
-                <span className="text-gray-300">{procOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}</span>
+            <div className="flex justify-end mb-5">
+              <button onClick={addProcCategory}
+                className="flex items-center gap-1.5 text-xs text-[#C07090] hover:text-[#A05070] font-medium transition-colors">
+                <Plus size={13} />カテゴリを追加
               </button>
-              {procOpen && (
-                <button onClick={addProcCategory}
-                  className="flex items-center gap-1.5 text-xs text-[#C07090] hover:text-[#A05070] font-medium transition-colors">
-                  <Plus size={13} />カテゴリを追加
-                </button>
+            </div>
+            <div className="flex flex-col gap-5 animate-[fade-in_0.3s_ease-out]">
+              {procedures.categories.length === 0 ? (
+                <div className="text-center py-14 flex flex-col items-center gap-3">
+                  <p className="text-4xl">📋</p>
+                  <p className="text-sm text-gray-400 font-medium">カテゴリを追加してリンクを整理しましょう</p>
+                </div>
+              ) : (
+                procedures.categories.map((cat, i) => (
+                  <ProcedureCategory key={cat.id} category={cat}
+                    onAddItem={addProcItem} onDeleteItem={deleteProcItem}
+                    onEditItem={(item, catId) => setEditingProcItem({ item, catId })}
+                    onDelete={deleteProcCategory} onRename={renameProcCategory}
+                    colorIndex={i} />
+                ))
               )}
             </div>
-            {procOpen && (
-              <div className="flex flex-col gap-5 animate-[fade-in_0.3s_ease-out]">
-                {procedures.categories.length === 0 ? (
-                  <div className="text-center py-14 flex flex-col items-center gap-3">
-                    <p className="text-4xl">📋</p>
-                    <p className="text-sm text-gray-400 font-medium">カテゴリを追加してリンクを整理しましょう</p>
-                  </div>
-                ) : (
-                  procedures.categories.map((cat, i) => (
-                    <ProcedureCategory key={cat.id} category={cat}
-                      onAddItem={addProcItem} onDeleteItem={deleteProcItem}
-                      onEditItem={(item, catId) => setEditingProcItem({ item, catId })}
-                      onDelete={deleteProcCategory} onRename={renameProcCategory}
-                      colorIndex={i} />
-                  ))
-                )}
-              </div>
-            )}
           </section>
         </main>
       )}
@@ -1436,7 +1426,7 @@ export default function App() {
 
               {/* ヘッダー */}
               <button onClick={() => setTasksOpen(v => !v)} className="w-full">
-                <div className="flex items-end justify-between px-4 pb-2 pt-2" style={{ background: 'linear-gradient(to right, #A8D8EC, #F8EBB0)', minHeight: 64 }}>
+                <div className="flex items-end justify-between px-4 pb-2 pt-2" style={{ backgroundColor: '#A8D8EC', minHeight: 64 }}>
                   <div className="flex items-center gap-2 font-semibold text-gray-700 text-sm">
                     ✔ タスク
                     <span className="text-xs font-normal bg-white/70 px-2 py-0.5 rounded-full text-gray-500">
