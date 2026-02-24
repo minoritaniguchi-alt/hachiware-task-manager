@@ -1230,7 +1230,8 @@ export default function App() {
 
   const handleLogin = useCallback((credential) => {
     try {
-      const payload = JSON.parse(atob(credential.split('.')[1]))
+      const base64 = credential.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+      const payload = JSON.parse(atob(base64))
       const email = payload.email
       const keys = getStorageKeys(email)
       let newTasks; try { newTasks = JSON.parse(localStorage.getItem(keys.tasks) ?? 'null') ?? [] } catch { newTasks = [] }
