@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useMemo } from 'react'
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useMemo, useCallback } from 'react'
 import {
   Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2,
   Clock, PauseCircle, Eye, Timer, Archive, RotateCcw,
-  Pencil, X, Check, Link as LinkIcon, Cloud, CloudOff
+  Pencil, X, Check, Link as LinkIcon, Cloud, CloudOff, LogOut
 } from 'lucide-react'
 import catLogo from './assets/cat_Image.png'
 import catBlack from './assets/cat_black.png'
@@ -17,10 +17,17 @@ const normalizeUrl = (url) => {
 }
 
 // ─── 定数 ───────────────────────────────────────────────
-const STORAGE_KEY   = 'hachiware-tasks-v1'
-const DASHBOARD_KEY = 'hachiware-dashboard-v1'
-const PROCEDURES_KEY = 'hachiware-procedures-v1'
 const SHEETS_API_URL = import.meta.env.VITE_SHEETS_API_URL ?? ''
+const GIS_CLIENT_ID  = import.meta.env.VITE_GIS_CLIENT_ID ?? ''
+
+function getStorageKeys(email) {
+  const safe = email ? email.replace(/[@.]/g, '_') : 'anonymous'
+  return {
+    tasks:      `hachiware-tasks-${safe}-v1`,
+    dashboard:  `hachiware-dashboard-${safe}-v1`,
+    procedures: `hachiware-procedures-${safe}-v1`,
+  }
+}
 
 const STATUS_CONFIG = {
   doing:   { label: '💨 やってる！',   color: 'text-[#2A6080] bg-[#A0C8DC] border-[#80B0C8]', dot: 'bg-[#2A6080]' },
@@ -1155,16 +1162,56 @@ function EmptyState() {
   )
 }
 
+// ─── ログイン画面 ─────────────────────────────────────────
+function LoginScreen({ onLogin }) {
+  const btnRef = useRef(null)
+
+  useEffect(() => {
+    const init = () => {
+      if (!window.google || !GIS_CLIENT_ID) return
+      window.google.accounts.id.initialize({
+        client_id: GIS_CLIENT_ID,
+        callback: (res) => onLogin(res.credential),
+        auto_select: false,
+      })
+      window.google.accounts.id.renderButton(btnRef.current, {
+        theme: 'outline', size: 'large', text: 'signin_with', locale: 'ja',
+      })
+    }
+    if (window.google) { init() } else { window.addEventListener('load', init) }
+    return () => window.removeEventListener('load', init)
+  }, [onLogin])
+
+  return (
+    <div className="min-h-screen bg-[#FAF7F2] flex flex-col items-center justify-center gap-8"
+         style={{ fontFamily: "'Noto Sans JP', sans-serif" }}>
+      <div className="flex flex-col items-center gap-3">
+        <img src={catLogo} alt="Koto Note" className="w-16 h-16 object-contain" />
+        <h1 className="font-bold text-gray-800 text-2xl tracking-wide">Koto Note</h1>
+        <p className="text-sm text-gray-400">Googleアカウントでログインしてください</p>
+      </div>
+      <div ref={btnRef} />
+      {!GIS_CLIENT_ID && <p className="text-xs text-red-400">GIS_CLIENT_ID が未設定です</p>}
+    </div>
+  )
+}
+
 // ─── メインアプリ ──────────────────────────────────────────
 export default function App() {
+  const [idToken, setIdToken]     = useState(() => sessionStorage.getItem('gis-id-token') ?? null)
+  const [userEmail, setUserEmail] = useState(() => sessionStorage.getItem('gis-user-email') ?? null)
+
   const [tasks, setTasks] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') ?? [] } catch { return [] }
+    const keys = getStorageKeys(sessionStorage.getItem('gis-user-email'))
+    try { return JSON.parse(localStorage.getItem(keys.tasks) ?? 'null') ?? [] } catch { return [] }
   })
   const [dashboard, setDashboard] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(DASHBOARD_KEY) ?? 'null') ?? { routine: [], adhoc: [], schedule: [] } } catch { return { routine: [], adhoc: [], schedule: [] } }
+    const keys = getStorageKeys(sessionStorage.getItem('gis-user-email'))
+    try { return JSON.parse(localStorage.getItem(keys.dashboard) ?? 'null') ?? { routine: [], adhoc: [], schedule: [] } } catch { return { routine: [], adhoc: [], schedule: [] } }
   })
   const [procedures, setProcedures] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(PROCEDURES_KEY) ?? 'null') ?? { categories: [] } } catch { return { categories: [] } }
+    const keys = getStorageKeys(sessionStorage.getItem('gis-user-email'))
+    try { return JSON.parse(localStorage.getItem(keys.procedures) ?? 'null') ?? { categories: [] } } catch { return { categories: [] } }
   })
   const [activeTab, setActiveTab]         = useState('dashboard')
 
@@ -1180,26 +1227,57 @@ export default function App() {
   const [hasLoaded, setHasLoaded]                 = useState(false)
   const syncTimerRef = useRef(null)
 
-  useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)) }, [tasks])
-  useEffect(() => { localStorage.setItem(DASHBOARD_KEY, JSON.stringify(dashboard)) }, [dashboard])
-  useEffect(() => { localStorage.setItem(PROCEDURES_KEY, JSON.stringify(procedures)) }, [procedures])
+  const handleLogin = useCallback((credential) => {
+    try {
+      const payload = JSON.parse(atob(credential.split('.')[1]))
+      const email = payload.email
+      const keys = getStorageKeys(email)
+      let newTasks; try { newTasks = JSON.parse(localStorage.getItem(keys.tasks) ?? 'null') ?? [] } catch { newTasks = [] }
+      let newDash; try { newDash = JSON.parse(localStorage.getItem(keys.dashboard) ?? 'null') ?? { routine: [], adhoc: [], schedule: [] } } catch { newDash = { routine: [], adhoc: [], schedule: [] } }
+      let newProc; try { newProc = JSON.parse(localStorage.getItem(keys.procedures) ?? 'null') ?? { categories: [] } } catch { newProc = { categories: [] } }
+      setTasks(newTasks)
+      setDashboard(newDash)
+      setProcedures(newProc)
+      setHasLoaded(false)
+      setIdToken(credential)
+      setUserEmail(email)
+      sessionStorage.setItem('gis-id-token', credential)
+      sessionStorage.setItem('gis-user-email', email)
+    } catch { console.error('IDトークンのデコードに失敗') }
+  }, [])
+
+  const handleLogout = useCallback(() => {
+    if (window.google) window.google.accounts.id.disableAutoSelect()
+    setIdToken(null)
+    setUserEmail(null)
+    setHasLoaded(false)
+    sessionStorage.removeItem('gis-id-token')
+    sessionStorage.removeItem('gis-user-email')
+  }, [])
+
+  const storageKeys = useMemo(() => getStorageKeys(userEmail), [userEmail])
+
+  useEffect(() => { localStorage.setItem(storageKeys.tasks, JSON.stringify(tasks)) }, [tasks, storageKeys])
+  useEffect(() => { localStorage.setItem(storageKeys.dashboard, JSON.stringify(dashboard)) }, [dashboard, storageKeys])
+  useEffect(() => { localStorage.setItem(storageKeys.procedures, JSON.stringify(procedures)) }, [procedures, storageKeys])
 
   // Google Sheets から初回読み込み
   useEffect(() => {
     const load = async () => {
-      if (!SHEETS_API_URL) {
+      if (!idToken || !SHEETS_API_URL) {
         setSyncStatus('local')
         setHasLoaded(true)
         return
       }
       try {
         // キャッシュバスターでブラウザキャッシュを回避
-        const res = await fetch(`${SHEETS_API_URL}?t=${Date.now()}`)
+        const res = await fetch(`${SHEETS_API_URL}?t=${Date.now()}&id_token=${encodeURIComponent(idToken)}`)
         const text = await res.text()
         if (text && text.trim() !== '{}') {
           let data
           try { data = JSON.parse(text) } catch { setSyncStatus('error'); setHasLoaded(true); return }
           if (!data) { setSyncStatus('error'); setHasLoaded(true); return }
+          if (data.error === 'unauthorized') { handleLogout(); setHasLoaded(true); return }
           // スプレッドシートが空（初回・移行直後）の場合はローカルデータを保持する
           const isEmpty = Array.isArray(data.tasks) && data.tasks.length === 0 &&
             data.dashboard && Object.values(data.dashboard).every(arr => Array.isArray(arr) && arr.length === 0)
@@ -1263,12 +1341,12 @@ export default function App() {
       setHasLoaded(true)
     }
     load()
-  }, [])
+  }, [idToken])
 
   // データ変更時に Google Sheets へ同期（1.5秒デバウンス）
   useEffect(() => {
     if (!hasLoaded) return
-    if (!SHEETS_API_URL) { setSyncStatus('local'); return }
+    if (!idToken || !SHEETS_API_URL) { setSyncStatus('local'); return }
     setSyncStatus('saving')
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
     syncTimerRef.current = setTimeout(async () => {
@@ -1276,15 +1354,16 @@ export default function App() {
         const res = await fetch(SHEETS_API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-          body: JSON.stringify({ tasks, dashboard, procedures, savedAt: new Date().toISOString() }),
+          body: JSON.stringify({ tasks, dashboard, procedures, savedAt: new Date().toISOString(), id_token: idToken }),
         })
         const result = await res.json()
+        if (result?.error === 'unauthorized') { handleLogout(); return }
         setSyncStatus(result?.ok ? 'synced' : 'error')
       } catch {
         setSyncStatus('error')
       }
     }, 1500)
-  }, [tasks, dashboard, procedures, hasLoaded])
+  }, [tasks, dashboard, procedures, hasLoaded, idToken])
 
   const addTask = (fields) => {
     const now = new Date().toISOString()
@@ -1360,6 +1439,8 @@ export default function App() {
   const filteredActive = useMemo(() => filter === 'all' ? activeTasks : activeTasks.filter(t => t.status === filter), [activeTasks, filter])
   const todayDone      = useMemo(() => doneTasks.filter(t => t.completedAt && new Date(t.completedAt).toDateString() === new Date().toDateString()).length, [doneTasks])
 
+  if (!userEmail) return <LoginScreen onLogin={handleLogin} />
+
   return (
     <div className="min-h-screen bg-[#FAF7F2] pb-20" style={{ fontFamily: "'Noto Sans JP', sans-serif" }}>
 
@@ -1385,6 +1466,14 @@ export default function App() {
               </div>
             </div>
             <SyncIndicator status={syncStatus} />
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+              title={`ログアウト (${userEmail})`}
+            >
+              <LogOut size={13} />
+              <span className="hidden sm:inline text-xs">ログアウト</span>
+            </button>
           </div>
         </div>
         {/* タブナビゲーション */}
