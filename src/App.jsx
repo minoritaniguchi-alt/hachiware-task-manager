@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useMemo, 
 import {
   Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2,
   Clock, PauseCircle, Eye, Timer, Archive, RotateCcw,
-  Pencil, X, Check, Link as LinkIcon, Cloud, CloudOff, LogOut
+  Pencil, X, Check, Link as LinkIcon, Cloud, CloudOff, LogOut, Settings, ExternalLink
 } from 'lucide-react'
 import catLogo from './assets/cat_Image.png'
 import catBlack from './assets/cat_black.png'
@@ -1224,6 +1224,8 @@ export default function App() {
   const [editingProcItem, setEditingProcItem]     = useState(null) // { item, catId }
   const [syncStatus, setSyncStatus]               = useState('loading')
   const [hasLoaded, setHasLoaded]                 = useState(false)
+  const [showSettings, setShowSettings]           = useState(false)
+  const [spreadsheetUrl, setSpreadsheetUrl]       = useState(null)
   const syncTimerRef = useRef(null)
 
   const handleLogin = useCallback((credential) => {
@@ -1333,6 +1335,7 @@ export default function App() {
             }
           }
         }
+        if (data.spreadsheetUrl) setSpreadsheetUrl(data.spreadsheetUrl)
         setSyncStatus('synced')
       } catch {
         setSyncStatus('error')
@@ -1465,12 +1468,11 @@ export default function App() {
             </div>
             <SyncIndicator status={syncStatus} />
             <button
-              onClick={handleLogout}
-              className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-              title={`ログアウト (${userEmail})`}
+              onClick={() => setShowSettings(true)}
+              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+              title="設定"
             >
-              <LogOut size={13} />
-              <span className="hidden sm:inline text-xs">ログアウト</span>
+              <Settings size={15} />
             </button>
           </div>
         </div>
@@ -1654,6 +1656,59 @@ export default function App() {
       )}
 
       {toast && <Toast msg={toast} onDone={() => setToast(null)} />}
+
+      {/* 設定モーダル */}
+      {showSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+             onClick={() => setShowSettings(false)}>
+          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col gap-5"
+               style={{ fontFamily: "'Noto Sans JP', sans-serif" }}
+               onClick={e => e.stopPropagation()}>
+
+            {/* ヘッダー */}
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-gray-800 text-base flex items-center gap-2">
+                <Settings size={16} className="text-gray-400" />設定
+              </h2>
+              <button onClick={() => setShowSettings(false)}
+                className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* ログイン中 */}
+            <div className="bg-[#FAF7F2] rounded-xl px-4 py-3">
+              <p className="text-xs text-gray-400 mb-0.5">ログイン中</p>
+              <p className="text-sm text-gray-700 font-medium truncate">{userEmail}</p>
+            </div>
+
+            {/* スプレッドシートを開く */}
+            {spreadsheetUrl ? (
+              <a href={spreadsheetUrl} target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-between px-4 py-3 rounded-xl border border-[#A0C8DC]/40 hover:bg-[#A0C8DC]/10 transition-colors group">
+                <div className="flex items-center gap-2.5 text-sm text-gray-700">
+                  <span className="text-base">📊</span>
+                  スプレッドシートを開く
+                </div>
+                <ExternalLink size={13} className="text-gray-400 group-hover:text-gray-600 transition-colors" />
+              </a>
+            ) : (
+              <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-gray-100 text-sm text-gray-300">
+                <span className="text-base">📊</span>
+                スプレッドシートを開く（同期後に表示）
+              </div>
+            )}
+
+            {/* ログアウト */}
+            <button onClick={() => { setShowSettings(false); handleLogout() }}
+              className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-red-100 hover:bg-red-50 transition-colors text-sm text-red-500 hover:text-red-600 w-full">
+              <LogOut size={14} />
+              ログアウト
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
