@@ -1359,7 +1359,6 @@ export default function App() {
           body: JSON.stringify({ tasks, dashboard, procedures, savedAt: new Date().toISOString(), id_token: idToken }),
         })
         const result = await res.json()
-        if (result?.error === 'unauthorized') { handleLogout(); return }
         setSyncStatus(result?.ok ? 'synced' : 'error')
       } catch {
         setSyncStatus('error')
