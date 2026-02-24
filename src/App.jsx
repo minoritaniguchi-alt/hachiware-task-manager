@@ -1334,8 +1334,8 @@ export default function App() {
               })
             }
           }
+          if (data.spreadsheetUrl) setSpreadsheetUrl(data.spreadsheetUrl)
         }
-        if (data.spreadsheetUrl) setSpreadsheetUrl(data.spreadsheetUrl)
         setSyncStatus('synced')
       } catch {
         setSyncStatus('error')
