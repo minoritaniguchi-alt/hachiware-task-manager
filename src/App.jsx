@@ -1172,9 +1172,7 @@ function LoginScreen({ onLogin }) {
       window.google.accounts.id.initialize({
         client_id: GIS_CLIENT_ID,
         callback: (res) => onLogin(res.credential),
-        auto_select: true,
       })
-      window.google.accounts.id.prompt()
       window.google.accounts.id.renderButton(btnRef.current, {
         theme: 'outline', size: 'large', text: 'signin_with', locale: 'ja',
       })
