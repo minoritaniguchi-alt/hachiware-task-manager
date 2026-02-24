@@ -1225,7 +1225,8 @@ export default function App() {
   const [syncStatus, setSyncStatus]               = useState('loading')
   const [hasLoaded, setHasLoaded]                 = useState(false)
   const [showSettings, setShowSettings]           = useState(false)
-  const [spreadsheetUrl, setSpreadsheetUrl]       = useState(null)
+  const [spreadsheetUrl, setSpreadsheetUrl]       = useState(() => localStorage.getItem('spreadsheet-url') ?? null)
+  const [editingSpreadsheetUrl, setEditingSpreadsheetUrl] = useState('')
   const syncTimerRef = useRef(null)
 
   const handleLogin = useCallback((credential) => {
@@ -1334,7 +1335,10 @@ export default function App() {
               })
             }
           }
-          if (data.spreadsheetUrl) setSpreadsheetUrl(data.spreadsheetUrl)
+          if (data.spreadsheetUrl) {
+            setSpreadsheetUrl(data.spreadsheetUrl)
+            localStorage.setItem('spreadsheet-url', data.spreadsheetUrl)
+          }
         }
         setSyncStatus('synced')
       } catch {
@@ -1685,18 +1689,72 @@ export default function App() {
 
             {/* スプレッドシートを開く */}
             {spreadsheetUrl ? (
-              <a href={spreadsheetUrl} target="_blank" rel="noopener noreferrer"
-                className="flex items-center justify-between px-4 py-3 rounded-xl border border-[#A0C8DC]/40 hover:bg-[#A0C8DC]/10 transition-colors group">
-                <div className="flex items-center gap-2.5 text-sm text-gray-700">
-                  <span className="text-base">📊</span>
-                  スプレッドシートを開く
-                </div>
-                <ExternalLink size={13} className="text-gray-400 group-hover:text-gray-600 transition-colors" />
-              </a>
+              <div className="flex items-center gap-2">
+                <a href={spreadsheetUrl} target="_blank" rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-between px-4 py-3 rounded-xl border border-[#A0C8DC]/40 hover:bg-[#A0C8DC]/10 transition-colors group">
+                  <div className="flex items-center gap-2.5 text-sm text-gray-700">
+                    <span className="text-base">📊</span>
+                    スプレッドシートを開く
+                  </div>
+                  <ExternalLink size={13} className="text-gray-400 group-hover:text-gray-600 transition-colors" />
+                </a>
+                <button onClick={() => { setEditingSpreadsheetUrl(spreadsheetUrl) }}
+                  className="p-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-400 hover:text-gray-600 transition-colors">
+                  <Pencil size={13} />
+                </button>
+              </div>
             ) : (
-              <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-gray-100 text-sm text-gray-300">
-                <span className="text-base">📊</span>
-                スプレッドシートを開く（同期後に表示）
+              <div className="flex flex-col gap-2">
+                <p className="text-xs text-gray-400 px-1">スプレッドシートのURLを貼り付けてください（一度設定すれば次から不要）</p>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={editingSpreadsheetUrl}
+                    onChange={e => setEditingSpreadsheetUrl(e.target.value)}
+                    placeholder="https://docs.google.com/spreadsheets/..."
+                    className="flex-1 text-xs border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-[#A0C8DC] text-gray-700"
+                  />
+                  <button
+                    onClick={() => {
+                      const url = editingSpreadsheetUrl.trim()
+                      if (!url) return
+                      setSpreadsheetUrl(url)
+                      localStorage.setItem('spreadsheet-url', url)
+                      setEditingSpreadsheetUrl('')
+                    }}
+                    disabled={!editingSpreadsheetUrl.trim()}
+                    className="px-3 py-2.5 rounded-xl bg-[#A0C8DC] hover:bg-[#80B0C8] text-white text-xs font-medium transition-colors disabled:opacity-40">
+                    保存
+                  </button>
+                </div>
+              </div>
+            )}
+            {/* URL編集中 */}
+            {spreadsheetUrl && editingSpreadsheetUrl && (
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={editingSpreadsheetUrl}
+                    onChange={e => setEditingSpreadsheetUrl(e.target.value)}
+                    className="flex-1 text-xs border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-[#A0C8DC] text-gray-700"
+                  />
+                  <button
+                    onClick={() => {
+                      const url = editingSpreadsheetUrl.trim()
+                      if (!url) return
+                      setSpreadsheetUrl(url)
+                      localStorage.setItem('spreadsheet-url', url)
+                      setEditingSpreadsheetUrl('')
+                    }}
+                    className="px-3 py-2.5 rounded-xl bg-[#A0C8DC] hover:bg-[#80B0C8] text-white text-xs font-medium transition-colors">
+                    保存
+                  </button>
+                  <button onClick={() => setEditingSpreadsheetUrl('')}
+                    className="px-3 py-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-400 text-xs transition-colors">
+                    キャンセル
+                  </button>
+                </div>
               </div>
             )}
 
