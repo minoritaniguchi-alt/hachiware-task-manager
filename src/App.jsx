@@ -1264,20 +1264,19 @@ export default function App() {
   // Google Sheets から初回読み込み
   useEffect(() => {
     const load = async () => {
-      if (!idToken || !SHEETS_API_URL) {
+      if (!userEmail || !SHEETS_API_URL) {
         setSyncStatus('local')
         setHasLoaded(true)
         return
       }
       try {
         // キャッシュバスターでブラウザキャッシュを回避
-        const res = await fetch(`${SHEETS_API_URL}?t=${Date.now()}&id_token=${encodeURIComponent(idToken)}`)
+        const res = await fetch(`${SHEETS_API_URL}?t=${Date.now()}&email=${encodeURIComponent(userEmail)}`)
         const text = await res.text()
         if (text && text.trim() !== '{}') {
           let data
           try { data = JSON.parse(text) } catch { setSyncStatus('error'); setHasLoaded(true); return }
           if (!data) { setSyncStatus('error'); setHasLoaded(true); return }
-          if (data.error === 'unauthorized') { handleLogout(); setHasLoaded(true); return }
           // スプレッドシートが空（初回・移行直後）の場合はローカルデータを保持する
           const isEmpty = Array.isArray(data.tasks) && data.tasks.length === 0 &&
             data.dashboard && Object.values(data.dashboard).every(arr => Array.isArray(arr) && arr.length === 0)
@@ -1346,7 +1345,7 @@ export default function App() {
   // データ変更時に Google Sheets へ同期（1.5秒デバウンス）
   useEffect(() => {
     if (!hasLoaded) return
-    if (!idToken || !SHEETS_API_URL) { setSyncStatus('local'); return }
+    if (!userEmail || !SHEETS_API_URL) { setSyncStatus('local'); return }
     setSyncStatus('saving')
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
     syncTimerRef.current = setTimeout(async () => {
@@ -1354,7 +1353,7 @@ export default function App() {
         const res = await fetch(SHEETS_API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-          body: JSON.stringify({ tasks, dashboard, procedures, savedAt: new Date().toISOString(), id_token: idToken }),
+          body: JSON.stringify({ tasks, dashboard, procedures, savedAt: new Date().toISOString(), email: userEmail }),
         })
         const result = await res.json()
         setSyncStatus(result?.ok ? 'synced' : 'error')
@@ -1362,7 +1361,7 @@ export default function App() {
         setSyncStatus('error')
       }
     }, 1500)
-  }, [tasks, dashboard, procedures, hasLoaded, idToken])
+  }, [tasks, dashboard, procedures, hasLoaded, userEmail])
 
   const addTask = (fields) => {
     const now = new Date().toISOString()
