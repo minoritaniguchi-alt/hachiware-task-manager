@@ -1249,17 +1249,22 @@ function TaskEditModal({ task, onSave, onClose }) {
 }
 
 // ─── SyncIndicator ────────────────────────────────────────
-function SyncIndicator({ status }) {
+function SyncIndicator({ status, onConnect }) {
   const configs = {
-    loading: { text: '読み込み中', className: 'text-gray-400 bg-gray-50', icon: <Cloud size={11} className="animate-pulse" /> },
-    saving:  { text: '保存中',    className: 'text-[#68B4C8] bg-[#A0C8DC]/15', icon: <Cloud size={11} /> },
-    synced:  { text: '同期済み',  className: 'text-[#4A9E68] bg-[#EAF6EF]',   icon: <Cloud size={11} /> },
-    error:   { text: 'オフライン', className: 'text-[#E5807A] bg-[#FDF0EF]',   icon: <CloudOff size={11} /> },
-    local:   { text: 'ローカル',  className: 'text-gray-400 bg-gray-100',      icon: <CloudOff size={11} /> },
+    loading: { text: '読み込み中',       className: 'text-gray-400 bg-gray-50',        icon: <Cloud size={11} className="animate-pulse" /> },
+    saving:  { text: '保存中',           className: 'text-[#68B4C8] bg-[#A0C8DC]/15',  icon: <Cloud size={11} /> },
+    synced:  { text: '同期済み',         className: 'text-[#4A9E68] bg-[#EAF6EF]',     icon: <Cloud size={11} /> },
+    error:   { text: 'オフライン',       className: 'text-[#E5807A] bg-[#FDF0EF]',     icon: <CloudOff size={11} /> },
+    local:   { text: 'クラウドに接続',   className: 'text-[#68B4C8] bg-[#A0C8DC]/15 hover:bg-[#A0C8DC]/30 cursor-pointer', icon: <Cloud size={11} /> },
   }
   const cfg = configs[status] ?? configs.loading
+  const isClickable = status === 'local' && onConnect
   return (
-    <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full font-medium text-xs ${cfg.className}`}>
+    <div
+      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full font-medium text-xs transition-colors ${cfg.className}`}
+      onClick={isClickable ? onConnect : undefined}
+      role={isClickable ? 'button' : undefined}
+    >
       {cfg.icon}
       <span className="hidden sm:inline">{cfg.text}</span>
     </div>
@@ -1375,12 +1380,13 @@ export default function App() {
     sessionStorage.removeItem('gis-access-token')
   }, [])
 
-  // OAuth2 アクセストークン取得（GAS「ユーザーとして実行」に必要）
+  // OAuth2 トークンクライアントを初期化し、サイレント取得を試みる
+  const tokenClientRef = useRef(null)
   useEffect(() => {
     if (!userEmail || !GIS_CLIENT_ID) return
-    const tryGetToken = () => {
+    const init = () => {
       if (!window.google?.accounts?.oauth2) return
-      const tokenClient = window.google.accounts.oauth2.initTokenClient({
+      tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
         client_id: GIS_CLIENT_ID,
         scope: 'https://www.googleapis.com/auth/spreadsheets',
         callback: (res) => {
@@ -1390,11 +1396,17 @@ export default function App() {
           }
         },
       })
-      tokenClient.requestAccessToken({ prompt: '' })
+      // 既に同意済みの場合はサイレント取得（初回はポップアップが必要なためボタンで対応）
+      tokenClientRef.current.requestAccessToken({ prompt: '' })
     }
-    if (window.google?.accounts?.oauth2) { tryGetToken() } else { window.addEventListener('load', tryGetToken) }
-    return () => window.removeEventListener('load', tryGetToken)
+    if (window.google?.accounts?.oauth2) { init() } else { window.addEventListener('load', init) }
+    return () => window.removeEventListener('load', init)
   }, [userEmail])
+
+  // ユーザー操作によるトークン取得（初回同意に必要）
+  const handleConnectCloud = useCallback(() => {
+    tokenClientRef.current?.requestAccessToken({ prompt: '' })
+  }, [])
 
   const storageKeys = useMemo(() => getStorageKeys(userEmail), [userEmail])
 
@@ -1593,7 +1605,7 @@ export default function App() {
                 <CheckCircle2 size={11} />今日 {todayDone}件完了
               </div>
             </div>
-            <SyncIndicator status={syncStatus} />
+            <SyncIndicator status={syncStatus} onConnect={handleConnectCloud} />
             <button
               onClick={() => setShowSettings(true)}
               className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
