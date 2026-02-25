@@ -6,57 +6,67 @@ const TASK_HEADERS = ['ID', 'タイトル', '詳細', '進捗メモ', 'ステー
 const DASH_HEADERS = ['ID', 'カテゴリ', '業務名', '詳細', '進捗メモ', 'リンク', 'スケジュール'];
 const PROC_HEADERS = ['カテゴリID', 'カテゴリ名', 'アイテムID', '表示名', 'URL', '備考'];
 
-function getOrCreateSheet(name, headers) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+/**
+ * ログイン中のユーザーのスプレッドシートを取得または作成する。
+ * UserProperties にスプレッドシートIDを保存するため、
+ * GAS のデプロイ設定を「ユーザーとして実行：ウェブアプリにアクセスしているユーザー」
+ * にする必要がある。
+ */
+function getUserSpreadsheet() {
+  const props = PropertiesService.getUserProperties();
+  const ssId = props.getProperty('spreadsheet_id');
+
+  if (ssId) {
+    try {
+      return SpreadsheetApp.openById(ssId);
+    } catch (e) {
+      // スプレッドシートが削除されていた場合は再作成
+    }
+  }
+
+  // マイドライブに新規作成
+  const ss = SpreadsheetApp.create('タスク管理');
+
+  // デフォルトで作成される「シート1」を削除
+  const defaultSheet = ss.getSheets()[0];
+  if (defaultSheet && defaultSheet.getName() !== TASK_SHEET) {
+    // 先に必要なシートを作成してからデフォルトシートを削除
+    initSheets(ss);
+    ss.deleteSheet(defaultSheet);
+  } else {
+    initSheets(ss);
+  }
+
+  props.setProperty('spreadsheet_id', ss.getId());
+  return ss;
+}
+
+/**
+ * スプレッドシートに必要なシートを初期化する。
+ */
+function initSheets(ss) {
+  ensureSheet(ss, TASK_SHEET, TASK_HEADERS);
+  ensureSheet(ss, DASH_SHEET, DASH_HEADERS);
+  ensureSheet(ss, PROC_SHEET, PROC_HEADERS);
+}
+
+function ensureSheet(ss, name, headers) {
   let sheet = ss.getSheetByName(name);
   if (!sheet) {
     sheet = ss.insertSheet(name);
   }
-  // ヘッダー行を常に確認・設定
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#d0e4f0');
   sheet.setFrozenRows(1);
   return sheet;
 }
 
-// デバッグ用：手順書シート作成テスト
-function testProcSheet() {
-  const sheet = getOrCreateSheet(PROC_SHEET, PROC_HEADERS);
-  Logger.log('手順書シート作成OK: ' + sheet.getName());
-}
-
-// デバッグ用：手順書データ書き込みテスト
-function testWriteProcData() {
-  const testData = {
-    categories: [
-      { id: '1', name: 'テストカテゴリ', items: [
-        { id: '101', title: 'テストリンク', url: 'https://example.com', note: 'テストメモ' }
-      ]}
-    ]
-  };
-  const procSheet = getOrCreateSheet(PROC_SHEET, PROC_HEADERS);
-  if (procSheet.getLastRow() > 1) {
-    procSheet.getRange(2, 1, procSheet.getLastRow() - 1, PROC_HEADERS.length).clearContent();
-  }
-  const rows = [];
-  testData.categories.forEach(cat => {
-    if (cat.items && cat.items.length > 0) {
-      cat.items.forEach(item => {
-        rows.push([cat.id, cat.name, item.id, item.title || '', item.url || '', item.note || '']);
-      });
-    } else {
-      rows.push([cat.id, cat.name, '', '', '', '']);
-    }
-  });
-  Logger.log('書き込む行数: ' + rows.length);
-  if (rows.length > 0) {
-    procSheet.getRange(2, 1, rows.length, PROC_HEADERS.length).setValues(rows);
-    Logger.log('書き込み完了');
-  }
+function getOrCreateSheet(ss, name, headers) {
+  return ensureSheet(ss, name, headers);
 }
 
 function doGet(e) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getUserSpreadsheet();
 
   // タスク読み込み
   let tasks = [];
@@ -122,16 +132,16 @@ function doGet(e) {
   }
 
   return ContentService
-    .createTextOutput(JSON.stringify({ tasks, dashboard, procedures }))
+    .createTextOutput(JSON.stringify({ tasks, dashboard, procedures, spreadsheetUrl: ss.getUrl() }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
 function doPost(e) {
   const data = JSON.parse(e.postData.contents);
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getUserSpreadsheet();
 
   // タスク書き込み
-  const taskSheet = getOrCreateSheet(TASK_SHEET, TASK_HEADERS);
+  const taskSheet = getOrCreateSheet(ss, TASK_SHEET, TASK_HEADERS);
   if (taskSheet.getLastRow() > 1) {
     taskSheet.getRange(2, 1, taskSheet.getLastRow() - 1, TASK_HEADERS.length).clearContent();
   }
@@ -151,7 +161,7 @@ function doPost(e) {
   }
 
   // ダッシュボード書き込み
-  const dashSheet = getOrCreateSheet(DASH_SHEET, DASH_HEADERS);
+  const dashSheet = getOrCreateSheet(ss, DASH_SHEET, DASH_HEADERS);
   if (dashSheet.getLastRow() > 1) {
     dashSheet.getRange(2, 1, dashSheet.getLastRow() - 1, DASH_HEADERS.length).clearContent();
   }
@@ -176,7 +186,7 @@ function doPost(e) {
   }
 
   // 手順書書き込み
-  const procSheet = getOrCreateSheet(PROC_SHEET, PROC_HEADERS);
+  const procSheet = getOrCreateSheet(ss, PROC_SHEET, PROC_HEADERS);
   if (procSheet.getLastRow() > 1) {
     procSheet.getRange(2, 1, procSheet.getLastRow() - 1, PROC_HEADERS.length).clearContent();
   }
@@ -198,6 +208,6 @@ function doPost(e) {
   }
 
   return ContentService
-    .createTextOutput(JSON.stringify({ ok: true }))
+    .createTextOutput(JSON.stringify({ ok: true, spreadsheetUrl: ss.getUrl() }))
     .setMimeType(ContentService.MimeType.JSON);
 }
