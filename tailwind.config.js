@@ -49,6 +49,7 @@ export default {
         'bounce-soft': 'bounce-soft 0.5s ease-in-out',
         'fade-in': 'fade-in 0.3s ease-out',
         'slide-down': 'slide-down 0.3s ease-out',
+        'pikupiku': 'pikupiku 0.55s ease-in-out',
       },
       keyframes: {
         'bounce-soft': {
@@ -62,6 +63,14 @@ export default {
         'slide-down': {
           '0%': { opacity: '0', maxHeight: '0' },
           '100%': { opacity: '1', maxHeight: '1000px' },
+        },
+        'pikupiku': {
+          '0%':   { transform: 'scaleY(1)' },
+          '15%':  { transform: 'scaleY(1.25)' },
+          '28%':  { transform: 'scaleY(1)' },
+          '43%':  { transform: 'scaleY(1.18)' },
+          '58%':  { transform: 'scaleY(1)' },
+          '100%': { transform: 'scaleY(1)' },
         },
       },
     },

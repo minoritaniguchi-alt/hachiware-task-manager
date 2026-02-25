@@ -248,10 +248,31 @@ function CatEarsDecor({ color, position }) {
     'top-center': 'absolute top-1 left-1/2 -translate-x-1/2',
     'top-right':  'absolute top-1 right-3',
   }[position] ?? ''
+
+  const [piku, setPiku] = useState(false)
+
+  useEffect(() => {
+    const trigger = () => {
+      // カードごとにランダムな遅延（0〜2秒）でバラバラ感を演出
+      const delay = Math.random() * 2000
+      setTimeout(() => {
+        setPiku(true)
+        setTimeout(() => setPiku(false), 600)
+      }, delay)
+    }
+    trigger() // ページ表示時に1回
+    const id = setInterval(trigger, 30000) // 以降30秒ごと
+    return () => clearInterval(id)
+  }, [])
+
   return (
     // style={{ color }} → fill="currentColor" が参照 → CSS変数と完全同期
     <div className={`pointer-events-none ${posClass}`} aria-hidden="true" style={{ color }}>
-      <svg width="116" height="41" viewBox="0 0 54 18">
+      <svg
+        width="116" height="41" viewBox="0 0 54 18"
+        className={piku ? 'animate-pikupiku' : ''}
+        style={{ transformOrigin: 'bottom center' }}
+      >
         <path d="M0 18 L4 8 Q12 -4 20 8 L24 18 Z" fill="currentColor" />
         <path d="M30 18 L34 8 Q42 -4 50 8 L54 18 Z" fill="currentColor" />
       </svg>
