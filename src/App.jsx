@@ -69,7 +69,7 @@ async function getOrCreateSpreadsheet(token, ssIdKey) {
     sheets: [
       { properties: { title: 'タスク' } },
       { properties: { title: 'ダッシュボード' } },
-      { properties: { title: '手順書' } },
+      { properties: { title: 'リンク' } },
     ],
   })
   // ヘッダー行を設定
@@ -78,7 +78,7 @@ async function getOrCreateSpreadsheet(token, ssIdKey) {
     data: [
       { range: 'タスク!A1:I1',       values: [['ID','タイトル','詳細','進捗メモ','ステータス','期限','リンク','作成日時','完了日時']] },
       { range: 'ダッシュボード!A1:G1', values: [['ID','カテゴリ','業務名','詳細','進捗メモ','リンク','スケジュール']] },
-      { range: '手順書!A1:F1',        values: [['カテゴリID','カテゴリ名','アイテムID','表示名','URL','備考']] },
+      { range: 'リンク!A1:F1',        values: [['カテゴリID','カテゴリ名','アイテムID','表示名','URL','備考']] },
     ],
   })
   localStorage.setItem(ssIdKey, ss.spreadsheetId)
@@ -87,7 +87,7 @@ async function getOrCreateSpreadsheet(token, ssIdKey) {
 
 async function loadFromSheets(token, ssId) {
   const res = await sheetsApi('GET',
-    `${SHEETS_API_BASE}/${ssId}/values:batchGet?ranges=${encodeURIComponent('タスク!A2:I')}&ranges=${encodeURIComponent('ダッシュボード!A2:G')}&ranges=${encodeURIComponent('手順書!A2:F')}`,
+    `${SHEETS_API_BASE}/${ssId}/values:batchGet?ranges=${encodeURIComponent('タスク!A2:I')}&ranges=${encodeURIComponent('ダッシュボード!A2:G')}&ranges=${encodeURIComponent('リンク!A2:F')}`,
     token)
   const [taskVals, dashVals, procVals] = (res.valueRanges || []).map(r => r.values || [])
 
@@ -123,7 +123,7 @@ async function loadFromSheets(token, ssId) {
 
 async function saveToSheets(token, ssId, { tasks, dashboard, procedures }) {
   await sheetsApi('POST', `${SHEETS_API_BASE}/${ssId}/values:batchClear`, token, {
-    ranges: ['タスク!A2:I', 'ダッシュボード!A2:G', '手順書!A2:F'],
+    ranges: ['タスク!A2:I', 'ダッシュボード!A2:G', 'リンク!A2:F'],
   })
   const taskRows = tasks.map(t => [
     t.id, t.title, t.details || '', t.memo || '', t.status, t.dueDate || '',
@@ -148,7 +148,7 @@ async function saveToSheets(token, ssId, { tasks, dashboard, procedures }) {
   const data = []
   if (taskRows.length) data.push({ range: 'タスク!A2', values: taskRows })
   if (dashRows.length) data.push({ range: 'ダッシュボード!A2', values: dashRows })
-  if (procRows.length) data.push({ range: '手順書!A2', values: procRows })
+  if (procRows.length) data.push({ range: 'リンク!A2', values: procRows })
   if (data.length) {
     await sheetsApi('POST', `${SHEETS_API_BASE}/${ssId}/values:batchUpdate`, token, {
       valueInputOption: 'RAW', data,
@@ -1498,7 +1498,7 @@ export default function App() {
             })
             return merged
           })
-          // 手順書
+          // リンク
           setProcedures(prev => {
             const sheetCatIds = new Set((data.procedures.categories || []).map(c => c.id))
             const localOnly   = (prev.categories || []).filter(c => !sheetCatIds.has(c.id))
@@ -1592,7 +1592,7 @@ export default function App() {
     setToast(TOAST_MSGS.edit)
   }
 
-  // ─── 手順書 CRUD ──────────────────────────────────────────
+  // ─── リンク CRUD ──────────────────────────────────────────
   const addProcCategory = () =>
     setProcedures(prev => ({ categories: [...prev.categories, { id: crypto.randomUUID(), name: '新しいカテゴリ', items: [] }] }))
   const deleteProcCategory = (catId) =>
@@ -1673,12 +1673,12 @@ export default function App() {
               activeTab === 'procedures' ? 'border-[#C07090] text-[#C07090]' : 'border-transparent text-gray-400 hover:text-gray-600'
             }`}>
             <img src={catOrange} alt="" className="w-5 h-5 object-contain" />
-            手順書
+            リンク
           </button>
         </div>
       </header>
 
-      {/* 手順書タブ */}
+      {/* リンクタブ */}
       {activeTab === 'procedures' && (
         <main className="max-w-4xl mx-auto px-6 py-7 flex flex-col gap-5">
           <section>
@@ -1800,7 +1800,7 @@ export default function App() {
         />
       )}
 
-      {/* 手順書アイテム編集モーダル */}
+      {/* リンクアイテム編集モーダル */}
       {editingProcItem && (
         <ProcedureItemEditModal
           item={editingProcItem.item}
