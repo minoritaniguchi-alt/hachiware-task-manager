@@ -13,7 +13,13 @@ import './index.css'
 const normalizeUrl = (url) => {
   const u = url.trim()
   if (!u) return ''
-  return u.startsWith('http') ? u : `https://${u}`
+  try {
+    const parsed = new URL(u.startsWith('http') ? u : `https://${u}`)
+    if (!['http:', 'https:'].includes(parsed.protocol)) return ''
+    return parsed.href
+  } catch {
+    return `https://${u}`
+  }
 }
 
 // ─── 定数 ───────────────────────────────────────────────
@@ -24,10 +30,11 @@ const SPREADSHEET_TITLE = 'Koto Note'
 function getStorageKeys(email) {
   const safe = email ? email.replace(/[@.]/g, '_') : 'anonymous'
   return {
-    tasks:      `hachiware-tasks-${safe}-v1`,
-    dashboard:  `hachiware-dashboard-${safe}-v1`,
-    procedures: `hachiware-procedures-${safe}-v1`,
-    ssId:       `hachiware-ss-id-${safe}`,
+    tasks:          `hachiware-tasks-${safe}-v1`,
+    dashboard:      `hachiware-dashboard-${safe}-v1`,
+    procedures:     `hachiware-procedures-${safe}-v1`,
+    ssId:           `hachiware-ss-id-${safe}`,
+    spreadsheetUrl: `hachiware-spreadsheet-url-${safe}`,
   }
 }
 
@@ -223,6 +230,15 @@ function getRecurrenceLabel(rec) {
  *   createdAt, completedAt
  * }
  */
+
+// ─── カスタムフック ──────────────────────────────────────
+function useEscapeKey(onClose) {
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [onClose])
+}
 
 // ─── 猫耳 × 2 ────────────────────────────────────────────
 // 低めの高さ + 幅広のQベジエで「ふっくら丸みのある猫耳」を表現
@@ -780,11 +796,7 @@ function DashboardItemEditModal({ item, onSave, onClose }) {
   const [links, setLinks]         = useState(item.links || [])
   const [recurrence, setRecurrence] = useState(item.recurrence || { type: 'none' })
   const linkInputRef = useRef(null)
-  useEffect(() => {
-    const h = (e) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', h)
-    return () => window.removeEventListener('keydown', h)
-  }, [onClose])
+  useEscapeKey(onClose)
 
   const handleSave = () => {
     if (!title.trim()) return
@@ -846,11 +858,7 @@ function DashboardItemEditModal({ item, onSave, onClose }) {
 
 // ─── ProcedureItemEditModal ───────────────────────────────
 function ProcedureItemEditModal({ item, onSave, onClose }) {
-  useEffect(() => {
-    const h = (e) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', h)
-    return () => window.removeEventListener('keydown', h)
-  }, [onClose])
+  useEscapeKey(onClose)
   const [title, setTitle] = useState(item.title || '')
   const [url, setUrl]     = useState(item.url || '')
   const [note, setNote]   = useState(item.note || '')
@@ -1160,11 +1168,7 @@ function TaskEditModal({ task, onSave, onClose }) {
   const [dueDate, setDueDate]   = useState(task.dueDate || '')
   const [links, setLinks]       = useState(task.links || [])
   const linkInputRef = useRef(null)
-  useEffect(() => {
-    const h = (e) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', h)
-    return () => window.removeEventListener('keydown', h)
-  }, [onClose])
+  useEscapeKey(onClose)
 
   const handleSave = () => {
     if (!title.trim()) return
@@ -1326,17 +1330,16 @@ export default function App() {
   const [userEmail, setUserEmail]       = useState(() => sessionStorage.getItem('gis-user-email') ?? null)
   const [accessToken, setAccessToken]   = useState(() => sessionStorage.getItem('gis-access-token') ?? null)
 
+  // 初期化時に1回だけキーを計算し、3つの state 初期値で共有
+  const _initKeys = getStorageKeys(sessionStorage.getItem('gis-user-email'))
   const [tasks, setTasks] = useState(() => {
-    const keys = getStorageKeys(sessionStorage.getItem('gis-user-email'))
-    try { return JSON.parse(localStorage.getItem(keys.tasks) ?? 'null') ?? [] } catch { return [] }
+    try { return JSON.parse(localStorage.getItem(_initKeys.tasks)      ?? 'null') ?? []                                       } catch { return [] }
   })
   const [dashboard, setDashboard] = useState(() => {
-    const keys = getStorageKeys(sessionStorage.getItem('gis-user-email'))
-    try { return JSON.parse(localStorage.getItem(keys.dashboard) ?? 'null') ?? { routine: [], adhoc: [], schedule: [] } } catch { return { routine: [], adhoc: [], schedule: [] } }
+    try { return JSON.parse(localStorage.getItem(_initKeys.dashboard)  ?? 'null') ?? { routine: [], adhoc: [], schedule: [] } } catch { return { routine: [], adhoc: [], schedule: [] } }
   })
   const [procedures, setProcedures] = useState(() => {
-    const keys = getStorageKeys(sessionStorage.getItem('gis-user-email'))
-    try { return JSON.parse(localStorage.getItem(keys.procedures) ?? 'null') ?? { categories: [] } } catch { return { categories: [] } }
+    try { return JSON.parse(localStorage.getItem(_initKeys.procedures) ?? 'null') ?? { categories: [] }                       } catch { return { categories: [] } }
   })
   const [activeTab, setActiveTab]         = useState('dashboard')
 
@@ -1351,7 +1354,7 @@ export default function App() {
   const [syncStatus, setSyncStatus]               = useState('loading')
   const [hasLoaded, setHasLoaded]                 = useState(false)
   const [showSettings, setShowSettings]           = useState(false)
-  const [spreadsheetUrl, setSpreadsheetUrl]       = useState(() => localStorage.getItem('spreadsheet-url') ?? null)
+  const [spreadsheetUrl, setSpreadsheetUrl]       = useState(() => localStorage.getItem(_initKeys.spreadsheetUrl) ?? null)
   const [editingSpreadsheetUrl, setEditingSpreadsheetUrl] = useState('')
   const syncTimerRef = useRef(null)
 
@@ -1432,7 +1435,7 @@ export default function App() {
         const ssId = await getOrCreateSpreadsheet(accessToken, storageKeys.ssId)
         const ssUrl = `https://docs.google.com/spreadsheets/d/${ssId}`
         setSpreadsheetUrl(ssUrl)
-        localStorage.setItem('spreadsheet-url', ssUrl)
+        localStorage.setItem(storageKeys.spreadsheetUrl, ssUrl)
 
         const data = await loadFromSheets(accessToken, ssId)
         // スプレッドシートが空（初回・移行直後）の場合はローカルデータを保持する
@@ -1498,7 +1501,7 @@ export default function App() {
       setHasLoaded(true)
     }
     load()
-  }, [accessToken])
+  }, [accessToken, storageKeys])
 
   // データ変更時に Google Sheets へ同期（1.5秒デバウンス）
   useEffect(() => {
@@ -1867,7 +1870,7 @@ export default function App() {
                       const url = editingSpreadsheetUrl.trim()
                       if (!url) return
                       setSpreadsheetUrl(url)
-                      localStorage.setItem('spreadsheet-url', url)
+                      localStorage.setItem(storageKeys.spreadsheetUrl, url)
                       setEditingSpreadsheetUrl('')
                     }}
                     disabled={!editingSpreadsheetUrl.trim()}
@@ -1892,7 +1895,7 @@ export default function App() {
                       const url = editingSpreadsheetUrl.trim()
                       if (!url) return
                       setSpreadsheetUrl(url)
-                      localStorage.setItem('spreadsheet-url', url)
+                      localStorage.setItem(storageKeys.spreadsheetUrl, url)
                       setEditingSpreadsheetUrl('')
                     }}
                     className="px-3 py-2.5 rounded-xl bg-[#A0C8DC] hover:bg-[#80B0C8] text-white text-xs font-medium transition-colors">
