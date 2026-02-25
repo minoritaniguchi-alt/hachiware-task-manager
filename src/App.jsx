@@ -38,7 +38,13 @@ async function sheetsApi(method, url, token, body) {
     headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
     ...(body != null ? { body: JSON.stringify(body) } : {}),
   })
-  if (!res.ok) throw new Error(`Sheets API ${res.status}`)
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '')
+    console.error('[SheetsAPI]', method, res.status, errBody)
+    const err = new Error(`${res.status}`)
+    err.status = res.status
+    throw err
+  }
   return res.json()
 }
 
@@ -1403,9 +1409,9 @@ export default function App() {
     return () => window.removeEventListener('load', init)
   }, [userEmail])
 
-  // ユーザー操作によるトークン取得（初回同意に必要）
+  // ユーザー操作によるトークン取得（同意画面を表示）
   const handleConnectCloud = useCallback(() => {
-    tokenClientRef.current?.requestAccessToken({ prompt: '' })
+    tokenClientRef.current?.requestAccessToken({ prompt: 'consent' })
   }, [])
 
   const storageKeys = useMemo(() => getStorageKeys(userEmail), [userEmail])
@@ -1479,8 +1485,15 @@ export default function App() {
           })
         }
         setSyncStatus('synced')
-      } catch {
-        setSyncStatus('error')
+      } catch (err) {
+        if (err.status === 401 || err.status === 403) {
+          // トークンが無効またはスコープ不足 → クリアして再接続ボタンを表示
+          setAccessToken(null)
+          sessionStorage.removeItem('gis-access-token')
+          setSyncStatus('local')
+        } else {
+          setSyncStatus('error')
+        }
       }
       setHasLoaded(true)
     }
