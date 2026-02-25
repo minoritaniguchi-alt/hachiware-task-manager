@@ -75,15 +75,25 @@
 
 | ステータス | 意味 |
 |-----------|------|
-| 💨 やってる！ | 作業中 |
-| 💭 どうかな⋯？ | レビュー中 |
-| ☕️ ふぅ⋯ | 一時停止 |
-| 🐾 まってる⋯ | 待機中 |
-| ✨ できたッ！ | 完了 |
+| 🚀 doing | 作業中 |
+| 💬 review | レビュー中 |
+| ⏸️ pause | 一時停止 |
+| ⏳ waiting | 待機中 |
+| 💚 done | 完了 |
 
 - 期限日・詳細・進捗メモ・リンクを設定可能
-- 完了タスクは自動でアーカイブに移動
-- アーカイブからタスクリストに戻す機能付き
+- ステータスフィルターで done タスクを一覧表示
+- done タスクは別のステータスに変更することでリストに戻せる
+
+---
+
+### 📖 手順書
+
+自由にカテゴリを作成し、リンクをまとめて管理できるタブです。
+
+- カテゴリの追加・削除・リネーム
+- 各カテゴリにリンク（URL・表示名・備考）を登録
+- 登録後にインライン編集・削除が可能
 
 ---
 
@@ -108,6 +118,8 @@
 `タスク` シート：`ID / タイトル / 詳細 / 進捗メモ / ステータス / 期限 / リンク / 作成日時 / 完了日時`
 
 `ダッシュボード` シート：`ID / カテゴリ / 業務名 / 詳細 / 進捗メモ / リンク / スケジュール`
+
+`手順書` シート：`カテゴリID / カテゴリ名 / アイテムID / 表示名 / URL / 備考`
 
 ---
 
@@ -137,27 +149,34 @@ npm run build && npm run deploy
 
 ---
 
-## ⚙️ Google Apps Script のセットアップ
+## ⚙️ Google Sheets 連携のセットアップ
 
-### 初回セットアップ
+Google Sheets との同期には Google Identity Services (GIS) を使った OAuth 認証を利用しています。Google Apps Script は不要です。
 
-1. Google スプレッドシートを新規作成
-2. 「拡張機能」→「Apps Script」を開く
-3. `gas/Code.gs` の内容を貼り付けて保存
-4. 「デプロイ」→「新しいデプロイ」→「種類：ウェブアプリ」
-5. アクセスを「全員」に設定してデプロイ
-6. 表示された URL を `src/App.jsx` の `SHEETS_API_URL` に設定
+### 1. OAuth クライアント ID を取得する
 
-### GAS を更新する場合
+1. [Google Cloud Console](https://console.cloud.google.com/) でプロジェクトを作成（または既存を選択）
+2. 「API とサービス」→「有効な API とサービス」から **Google Sheets API** を有効化
+3. 「認証情報」→「認証情報を作成」→「OAuth クライアント ID」
+4. アプリケーションの種類：**ウェブアプリケーション**
+5. 承認済みの JavaScript 生成元に以下を追加：
+   - `http://localhost:5173`（開発環境）
+   - `https://<your-github-username>.github.io`（本番環境）
+6. 作成後に表示される **クライアント ID** をコピー
 
-`gas/Code.gs` を変更したら、GAS エディタで以下の手順で再デプロイが必要です。
+### 2. 環境変数を設定する
 
-1. 「デプロイ」→「デプロイを管理」
-2. 鉛筆アイコン（編集）をクリック
-3. バージョン：「新しいバージョン」を選択
-4. 「デプロイ」をクリック
+プロジェクトルートに `.env.local` を作成し、取得したクライアント ID を設定します。
 
-> ⚠️ URL は変わりません（同じデプロイを更新する場合）
+```
+VITE_GIS_CLIENT_ID=<your-client-id>.apps.googleusercontent.com
+```
+
+GitHub Pages へのデプロイ時は、リポジトリの **Settings → Secrets and variables → Actions** に `VITE_GIS_CLIENT_ID` を登録してください。
+
+### 3. アプリからログインする
+
+アプリを起動すると Google ログイン画面が表示されます。ログインするとスプレッドシートが自動作成され、データの同期が始まります。
 
 ---
 
@@ -170,7 +189,8 @@ npm run build && npm run deploy
 | Tailwind CSS | 3 | スタイリング |
 | Lucide React | 最新 | アイコン |
 | gh-pages | 最新 | GitHub Pages デプロイ |
-| Google Apps Script | — | バックエンド・Sheets 連携 |
+| Google Identity Services | — | OAuth 認証 |
+| Google Sheets API | v4 | データ永続化 |
 
 ---
 
