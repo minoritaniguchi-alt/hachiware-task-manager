@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useMemo, useCallback } from 'react'
 import {
   Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2,
-  Clock, PauseCircle, Eye, Timer, Archive, RotateCcw,
+  Clock,
   Pencil, X, Check, Link as LinkIcon, Cloud, CloudOff, LogOut, Settings, ExternalLink
 } from 'lucide-react'
 import catLogo from './assets/cat_Image.png'
@@ -299,12 +299,15 @@ function StatusBadge({ status, onChange }) {
   const btnRef = useRef(null)
   const cfg = STATUS_CONFIG[status]
 
-  // ドロップダウンの表示位置をボタン基準で計算
+  // ドロップダウンの表示位置をボタン基準で計算（画面下端に近い場合は上方向に開く）
   const [dropPos, setDropPos] = useState({ top: 0, left: 0 })
   const openDropdown = () => {
     if (btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect()
-      setDropPos({ top: rect.bottom + 4, left: rect.left })
+      const DROPDOWN_H = STATUS_ORDER.length * 34 + 12
+      const spaceBelow = window.innerHeight - rect.bottom
+      const top = spaceBelow >= DROPDOWN_H ? rect.bottom + 4 : rect.top - DROPDOWN_H - 4
+      setDropPos({ top, left: rect.left })
     }
     setOpen(true)
   }
@@ -1361,7 +1364,6 @@ export default function App() {
 
 
   const [tasksOpen, setTasksOpen]         = useState(true)
-  const [archiveOpen, setArchiveOpen]     = useState(false)
   const [toast, setToast]                 = useState(null)
   const [filter, setFilter]               = useState('all')
   const [editingTask, setEditingTask]             = useState(null)
@@ -1606,9 +1608,12 @@ export default function App() {
     setToast(TOAST_MSGS.edit)
   }
 
-  const activeTasks    = useMemo(() => tasks.filter(t => t.status !== 'done'), [tasks])
-  const doneTasks      = useMemo(() => tasks.filter(t => t.status === 'done').sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt)), [tasks])
-  const filteredActive = useMemo(() => filter === 'all' ? activeTasks : activeTasks.filter(t => t.status === filter), [activeTasks, filter])
+  const activeTasks    = useMemo(() => tasks, [tasks])
+  const doneTasks      = useMemo(() => tasks.filter(t => t.status === 'done'), [tasks])
+  const filteredActive = useMemo(() => {
+    if (filter === 'all') return activeTasks.filter(t => t.status !== 'done')
+    return activeTasks.filter(t => t.status === filter)
+  }, [activeTasks, filter])
   const todayDone      = useMemo(() => doneTasks.filter(t => t.completedAt && new Date(t.completedAt).toDateString() === new Date().toDateString()).length, [doneTasks])
 
   if (!userEmail) return <LoginScreen onLogin={handleLogin} />
@@ -1774,29 +1779,7 @@ export default function App() {
           </div>
         </section>
 
-        {/* 完了済みアーカイブ */}
-        {doneTasks.length > 0 && (
-          <section>
-            <button onClick={() => setArchiveOpen(v => !v)}
-              className="flex items-center gap-2 w-full text-xs font-semibold text-gray-400 hover:text-gray-600 mb-4 transition-colors tracking-widest uppercase">
-              <Archive size={13} className="text-[#8FC8A4]" />💚 done
-              <span className="bg-[#F0EBE3] px-2 py-0.5 rounded-full normal-case tracking-normal font-normal text-gray-400">{doneTasks.length}件</span>
-              <span className="ml-auto text-gray-300">{archiveOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}</span>
-            </button>
-            {archiveOpen && (
-              <div className="bg-white/60 rounded-2xl border border-[#A0C8DC]/15 animate-[fade-in_0.3s_ease-out]">
-                <div className="px-4 py-3 border-b border-[#F0EBE3]"><p className="text-xs text-gray-400 text-center">💚 done のタスク</p></div>
-                <div className="flex flex-col divide-y divide-[#F5F0EB]">
-                  {doneTasks.map(task => (
-                    <TaskRow key={task.id} task={task}
-                      onStatusChange={changeStatus} onDelete={deleteTask}
-                      onEdit={setEditingTask} />
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-        )}
+
       </main>}
 
       {/* タスク編集モーダル */}
