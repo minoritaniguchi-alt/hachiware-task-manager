@@ -297,6 +297,7 @@ function StatusBadge({ status, onChange }) {
   return (
     <>
       <button
+        type="button"
         ref={btnRef}
         onClick={openDropdown}
         className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border cursor-pointer select-none transition-all duration-150 ${cfg.color} hover:opacity-80`}
@@ -316,6 +317,7 @@ function StatusBadge({ status, onChange }) {
               const c = STATUS_CONFIG[s]
               return (
                 <button
+                  type="button"
                   key={s}
                   onClick={() => { onChange(s); setOpen(false) }}
                   className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border cursor-pointer w-full ${c.color} hover:opacity-80 ${s === status ? 'ring-1 ring-offset-1 ring-current' : ''}`}
@@ -782,7 +784,7 @@ const LinkInputRow = forwardRef(function LinkInputRow({ onAdd }, ref) {
         placeholder="表示名"
         className="w-24 text-xs px-2.5 py-1.5 rounded-lg border border-[#A0C8DC]/20 bg-white/80 focus:outline-none focus:ring-1 focus:ring-[#A0C8DC]/40 placeholder-gray-400"
       />
-      <button onClick={handleAdd} className="p-1.5 rounded-lg bg-[#A0C8DC]/20 hover:bg-[#A0C8DC]/40 text-[#68B4C8] transition-colors flex-shrink-0">
+      <button type="button" onClick={handleAdd} className="p-1.5 rounded-lg bg-[#A0C8DC]/20 hover:bg-[#A0C8DC]/40 text-[#68B4C8] transition-colors flex-shrink-0">
         <Plus size={14} />
       </button>
     </div>
