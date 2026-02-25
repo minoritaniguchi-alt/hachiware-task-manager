@@ -1197,8 +1197,9 @@ function LoginScreen({ onLogin }) {
 
 // ─── メインアプリ ──────────────────────────────────────────
 export default function App() {
-  const [idToken, setIdToken]     = useState(() => sessionStorage.getItem('gis-id-token') ?? null)
-  const [userEmail, setUserEmail] = useState(() => sessionStorage.getItem('gis-user-email') ?? null)
+  const [idToken, setIdToken]           = useState(() => sessionStorage.getItem('gis-id-token') ?? null)
+  const [userEmail, setUserEmail]       = useState(() => sessionStorage.getItem('gis-user-email') ?? null)
+  const [accessToken, setAccessToken]   = useState(() => sessionStorage.getItem('gis-access-token') ?? null)
 
   const [tasks, setTasks] = useState(() => {
     const keys = getStorageKeys(sessionStorage.getItem('gis-user-email'))
@@ -1253,10 +1254,33 @@ export default function App() {
     if (window.google) window.google.accounts.id.disableAutoSelect()
     setIdToken(null)
     setUserEmail(null)
+    setAccessToken(null)
     setHasLoaded(false)
     sessionStorage.removeItem('gis-id-token')
     sessionStorage.removeItem('gis-user-email')
+    sessionStorage.removeItem('gis-access-token')
   }, [])
+
+  // OAuth2 アクセストークン取得（GAS「ユーザーとして実行」に必要）
+  useEffect(() => {
+    if (!userEmail || !GIS_CLIENT_ID) return
+    const tryGetToken = () => {
+      if (!window.google?.accounts?.oauth2) return
+      const tokenClient = window.google.accounts.oauth2.initTokenClient({
+        client_id: GIS_CLIENT_ID,
+        scope: 'https://www.googleapis.com/auth/spreadsheets',
+        callback: (res) => {
+          if (res.access_token) {
+            setAccessToken(res.access_token)
+            sessionStorage.setItem('gis-access-token', res.access_token)
+          }
+        },
+      })
+      tokenClient.requestAccessToken({ prompt: '' })
+    }
+    if (window.google?.accounts?.oauth2) { tryGetToken() } else { window.addEventListener('load', tryGetToken) }
+    return () => window.removeEventListener('load', tryGetToken)
+  }, [userEmail])
 
   const storageKeys = useMemo(() => getStorageKeys(userEmail), [userEmail])
 
@@ -1267,14 +1291,16 @@ export default function App() {
   // Google Sheets から初回読み込み
   useEffect(() => {
     const load = async () => {
-      if (!userEmail || !SHEETS_API_URL) {
+      if (!userEmail || !SHEETS_API_URL || !accessToken) {
         setSyncStatus('local')
         setHasLoaded(true)
         return
       }
       try {
         // キャッシュバスターでブラウザキャッシュを回避
-        const res = await fetch(`${SHEETS_API_URL}?t=${Date.now()}&email=${encodeURIComponent(userEmail)}`)
+        const res = await fetch(`${SHEETS_API_URL}?t=${Date.now()}&email=${encodeURIComponent(userEmail)}`, {
+          headers: { Authorization: 'Bearer ' + accessToken },
+        })
         const text = await res.text()
         if (text && text.trim() !== '{}') {
           let data
@@ -1347,19 +1373,22 @@ export default function App() {
       setHasLoaded(true)
     }
     load()
-  }, [idToken])
+  }, [accessToken])
 
   // データ変更時に Google Sheets へ同期（1.5秒デバウンス）
   useEffect(() => {
     if (!hasLoaded) return
-    if (!userEmail || !SHEETS_API_URL) { setSyncStatus('local'); return }
+    if (!userEmail || !SHEETS_API_URL || !accessToken) { setSyncStatus('local'); return }
     setSyncStatus('saving')
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
     syncTimerRef.current = setTimeout(async () => {
       try {
         const res = await fetch(SHEETS_API_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+          headers: {
+            'Content-Type': 'text/plain;charset=UTF-8',
+            Authorization: 'Bearer ' + accessToken,
+          },
           body: JSON.stringify({ tasks, dashboard, procedures, savedAt: new Date().toISOString(), email: userEmail }),
         })
         const result = await res.json()
