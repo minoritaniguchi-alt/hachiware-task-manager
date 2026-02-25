@@ -150,11 +150,11 @@ async function saveToSheets(token, ssId, { tasks, dashboard, procedures }) {
 }
 
 const STATUS_CONFIG = {
-  doing:   { label: '💨 やってる！',   color: 'text-[#2A6080] bg-[#A0C8DC] border-[#80B0C8]', dot: 'bg-[#2A6080]' },
-  review:  { label: '💭 どうかな⋯？', color: 'text-[#703080] bg-[#F8C8D4] border-[#E8A0BC]', dot: 'bg-[#703080]' },
-  pause:   { label: '☕️ ふぅ⋯',       color: 'text-[#8A5020] bg-[#F8D4B8] border-[#E0B890]', dot: 'bg-[#8A5020]' },
-  waiting: { label: '🐾 まってる⋯',   color: 'text-[#584090] bg-[#D4C8EC] border-[#B4A8D4]', dot: 'bg-[#584090]' },
-  done:    { label: '✨ できたッ！',   color: 'text-[#2A7050] bg-[#B8E8D0] border-[#90D0B0]', dot: 'bg-[#2A7050]' },
+  doing:   { label: '🚀 doing',   color: 'text-[#2A6080] bg-[#A0C8DC] border-[#80B0C8]', dot: 'bg-[#2A6080]' },
+  review:  { label: '💬 review',  color: 'text-[#703080] bg-[#F8C8D4] border-[#E8A0BC]', dot: 'bg-[#703080]' },
+  pause:   { label: '⏸️ pause',   color: 'text-[#8A5020] bg-[#F8D4B8] border-[#E0B890]', dot: 'bg-[#8A5020]' },
+  waiting: { label: '⏳ waiting', color: 'text-[#584090] bg-[#D4C8EC] border-[#B4A8D4]', dot: 'bg-[#584090]' },
+  done:    { label: '💚 done',    color: 'text-[#2A7050] bg-[#B8E8D0] border-[#90D0B0]', dot: 'bg-[#2A7050]' },
 }
 const STATUS_ORDER = ['doing', 'review', 'pause', 'waiting']
 
