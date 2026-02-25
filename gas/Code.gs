@@ -25,7 +25,7 @@ function getUserSpreadsheet() {
   }
 
   // マイドライブに新規作成
-  const ss = SpreadsheetApp.create('タスク管理');
+  const ss = SpreadsheetApp.create('Koto Note');
 
   // デフォルトで作成される「シート1」を削除
   const defaultSheet = ss.getSheets()[0];
