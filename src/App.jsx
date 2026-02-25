@@ -163,7 +163,7 @@ const STATUS_CONFIG = {
   waiting: { label: '⏳ waiting', color: 'text-[#584090] bg-[#D4C8EC] border-[#B4A8D4]', dot: 'bg-[#584090]' },
   done:    { label: '💚 done',    color: 'text-[#2A7050] bg-[#B8E8D0] border-[#90D0B0]', dot: 'bg-[#2A7050]' },
 }
-const STATUS_ORDER = ['doing', 'review', 'pause', 'waiting']
+const STATUS_ORDER = ['doing', 'review', 'pause', 'waiting', 'done']
 
 const DASHBOARD_CATEGORIES = [
   { id: 'routine',  label: 'ルーチン業務', emoji: '🍜', borderColor: 'border-[#A0C8DC]', bgColor: 'from-[#A0C8DC]/10 to-[#A0C8DC]/5', color: '#A0C8DC', earPosition: 'top-left' },
@@ -504,17 +504,15 @@ function LinkSvgIcon({ size = 12, className = '' }) {
 }
 
 // ─── TaskRow ─────────────────────────────────────────────
-function TaskRow({ task, onStatusChange, onDelete, onToggleDone, onEdit }) {
+function TaskRow({ task, onStatusChange, onDelete, onEdit }) {
   const isDone = task.status === 'done'
   const links = task.links || []
 
   return (
-    <div className={`flex items-start gap-3 px-4 py-3.5 transition-all duration-200 hover:bg-[#FAF7F2]/70 group ${isDone ? 'opacity-50' : ''}`}>
-      <DoneToggle isDone={isDone} onClick={() => onToggleDone(task.id, isDone)} />
-
+    <div className="flex items-start gap-3 px-4 py-3.5 transition-all duration-200 hover:bg-[#FAF7F2]/70 group">
       <div className="flex-1 min-w-0 flex flex-col gap-1.5">
         {/* タイトル */}
-        <span className={`text-sm font-medium text-gray-800 leading-snug ${isDone ? 'line-through text-gray-400' : ''}`}>
+        <span className="text-sm font-medium text-gray-800 leading-snug">
           {task.title}
         </span>
 
@@ -525,7 +523,7 @@ function TaskRow({ task, onStatusChange, onDelete, onToggleDone, onEdit }) {
 
         {/* バッジ行 */}
         <div className="flex items-center gap-2 flex-wrap">
-          {!isDone && <StatusBadge status={task.status} onChange={s => onStatusChange(task.id, s)} />}
+          <StatusBadge status={task.status} onChange={s => onStatusChange(task.id, s)} />
           {task.dueDate && <span className="text-xs text-gray-400">📅 {task.dueDate}</span>}
         </div>
 
@@ -560,11 +558,6 @@ function TaskRow({ task, onStatusChange, onDelete, onToggleDone, onEdit }) {
         <button onClick={() => onEdit(task)} className="p-1.5 text-gray-400 hover:text-[#A0C8DC] rounded-lg hover:bg-[#A0C8DC]/10 transition-colors" title="編集">
           <Pencil size={13} />
         </button>
-        {isDone && (
-          <button onClick={() => onToggleDone(task.id, isDone)} className="p-1.5 text-gray-400 hover:text-[#68B4C8] rounded-lg hover:bg-[#A0C8DC]/10 transition-colors" title="リストに戻す">
-            <RotateCcw size={13} />
-          </button>
-        )}
         <button onClick={() => onDelete(task.id)} className="p-1.5 text-gray-400 hover:text-red-400 rounded-lg hover:bg-red-50 transition-colors" title="削除">
           <Trash2 size={13} />
         </button>
@@ -1750,7 +1743,7 @@ export default function App() {
                       {filteredActive.map(task => (
                         <TaskRow key={task.id} task={task}
                           onStatusChange={changeStatus} onDelete={deleteTask}
-                          onToggleDone={toggleDone} onEdit={setEditingTask} />
+                          onEdit={setEditingTask} />
                       ))}
                     </div>
                   )}
@@ -1765,18 +1758,18 @@ export default function App() {
           <section>
             <button onClick={() => setArchiveOpen(v => !v)}
               className="flex items-center gap-2 w-full text-xs font-semibold text-gray-400 hover:text-gray-600 mb-4 transition-colors tracking-widest uppercase">
-              <Archive size={13} className="text-[#8FC8A4]" />完了済み
+              <Archive size={13} className="text-[#8FC8A4]" />💚 done
               <span className="bg-[#F0EBE3] px-2 py-0.5 rounded-full normal-case tracking-normal font-normal text-gray-400">{doneTasks.length}件</span>
               <span className="ml-auto text-gray-300">{archiveOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}</span>
             </button>
             {archiveOpen && (
               <div className="bg-white/60 rounded-2xl border border-[#A0C8DC]/15 animate-[fade-in_0.3s_ease-out]">
-                <div className="px-4 py-3 border-b border-[#F0EBE3]"><p className="text-xs text-gray-400 text-center">完了済みのタスク</p></div>
+                <div className="px-4 py-3 border-b border-[#F0EBE3]"><p className="text-xs text-gray-400 text-center">💚 done のタスク</p></div>
                 <div className="flex flex-col divide-y divide-[#F5F0EB]">
                   {doneTasks.map(task => (
                     <TaskRow key={task.id} task={task}
                       onStatusChange={changeStatus} onDelete={deleteTask}
-                      onToggleDone={toggleDone} onEdit={setEditingTask} />
+                      onEdit={setEditingTask} />
                   ))}
                 </div>
               </div>
