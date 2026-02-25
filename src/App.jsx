@@ -17,8 +17,9 @@ const normalizeUrl = (url) => {
 }
 
 // ─── 定数 ───────────────────────────────────────────────
-const SHEETS_API_URL = import.meta.env.VITE_SHEETS_API_URL ?? ''
-const GIS_CLIENT_ID  = import.meta.env.VITE_GIS_CLIENT_ID ?? ''
+const GIS_CLIENT_ID     = import.meta.env.VITE_GIS_CLIENT_ID ?? ''
+const SHEETS_API_BASE   = 'https://sheets.googleapis.com/v4/spreadsheets'
+const SPREADSHEET_TITLE = 'Koto Note'
 
 function getStorageKeys(email) {
   const safe = email ? email.replace(/[@.]/g, '_') : 'anonymous'
@@ -26,6 +27,119 @@ function getStorageKeys(email) {
     tasks:      `hachiware-tasks-${safe}-v1`,
     dashboard:  `hachiware-dashboard-${safe}-v1`,
     procedures: `hachiware-procedures-${safe}-v1`,
+    ssId:       `hachiware-ss-id-${safe}`,
+  }
+}
+
+// ─── Google Sheets API ヘルパー ─────────────────────────
+async function sheetsApi(method, url, token, body) {
+  const res = await fetch(url, {
+    method,
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    ...(body != null ? { body: JSON.stringify(body) } : {}),
+  })
+  if (!res.ok) throw new Error(`Sheets API ${res.status}`)
+  return res.json()
+}
+
+async function getOrCreateSpreadsheet(token, ssIdKey) {
+  const ssId = localStorage.getItem(ssIdKey)
+  if (ssId) {
+    try {
+      await sheetsApi('GET', `${SHEETS_API_BASE}/${ssId}?fields=spreadsheetId`, token)
+      return ssId
+    } catch {}
+  }
+  // マイドライブに新規作成
+  const ss = await sheetsApi('POST', SHEETS_API_BASE, token, {
+    properties: { title: SPREADSHEET_TITLE },
+    sheets: [
+      { properties: { title: 'タスク' } },
+      { properties: { title: 'ダッシュボード' } },
+      { properties: { title: '手順書' } },
+    ],
+  })
+  // ヘッダー行を設定
+  await sheetsApi('POST', `${SHEETS_API_BASE}/${ss.spreadsheetId}/values:batchUpdate`, token, {
+    valueInputOption: 'RAW',
+    data: [
+      { range: 'タスク!A1:I1',       values: [['ID','タイトル','詳細','進捗メモ','ステータス','期限','リンク','作成日時','完了日時']] },
+      { range: 'ダッシュボード!A1:G1', values: [['ID','カテゴリ','業務名','詳細','進捗メモ','リンク','スケジュール']] },
+      { range: '手順書!A1:F1',        values: [['カテゴリID','カテゴリ名','アイテムID','表示名','URL','備考']] },
+    ],
+  })
+  localStorage.setItem(ssIdKey, ss.spreadsheetId)
+  return ss.spreadsheetId
+}
+
+async function loadFromSheets(token, ssId) {
+  const res = await sheetsApi('GET',
+    `${SHEETS_API_BASE}/${ssId}/values:batchGet?ranges=${encodeURIComponent('タスク!A2:I')}&ranges=${encodeURIComponent('ダッシュボード!A2:G')}&ranges=${encodeURIComponent('手順書!A2:F')}`,
+    token)
+  const [taskVals, dashVals, procVals] = (res.valueRanges || []).map(r => r.values || [])
+
+  const tasks = (taskVals || []).filter(r => r[0]).map(r => ({
+    id: String(r[0]), title: r[1] || '', details: r[2] || '', memo: r[3] || '',
+    status: r[4] || '', dueDate: r[5] || '',
+    links: r[6] ? JSON.parse(r[6]) : [],
+    createdAt: r[7] || '', completedAt: r[8] || null,
+  }))
+
+  const dashboard = { routine: [], adhoc: [], schedule: [] }
+  ;(dashVals || []).filter(r => r[0]).forEach(r => {
+    const catId = r[1]
+    if (dashboard[catId]) {
+      dashboard[catId].push({
+        id: String(r[0]), text: r[2] || '', details: r[3] || '', memo: r[4] || '',
+        links: r[5] ? JSON.parse(r[5]) : [],
+        recurrence: r[6] ? JSON.parse(r[6]) : { type: 'none' },
+      })
+    }
+  })
+
+  const catMap = {}
+  ;(procVals || []).filter(r => r[0]).forEach(r => {
+    const catId = String(r[0])
+    if (!catMap[catId]) catMap[catId] = { id: catId, name: r[1] || '', items: [] }
+    if (r[2]) catMap[catId].items.push({ id: String(r[2]), title: r[3] || '', url: r[4] || '', note: r[5] || '' })
+  })
+  const procedures = { categories: Object.values(catMap) }
+
+  return { tasks, dashboard, procedures }
+}
+
+async function saveToSheets(token, ssId, { tasks, dashboard, procedures }) {
+  await sheetsApi('POST', `${SHEETS_API_BASE}/${ssId}/values:batchClear`, token, {
+    ranges: ['タスク!A2:I', 'ダッシュボード!A2:G', '手順書!A2:F'],
+  })
+  const taskRows = tasks.map(t => [
+    t.id, t.title, t.details || '', t.memo || '', t.status, t.dueDate || '',
+    t.links?.length ? JSON.stringify(t.links) : '', t.createdAt || '', t.completedAt || '',
+  ])
+  const dashRows = []
+  Object.entries(dashboard).forEach(([catId, items]) => {
+    items.forEach(item => dashRows.push([
+      item.id, catId, item.text, item.details || '', item.memo || '',
+      item.links?.length ? JSON.stringify(item.links) : '',
+      item.recurrence?.type !== 'none' ? JSON.stringify(item.recurrence) : '',
+    ]))
+  })
+  const procRows = []
+  procedures.categories?.forEach(cat => {
+    if (cat.items?.length) {
+      cat.items.forEach(item => procRows.push([cat.id, cat.name, item.id, item.title || '', item.url || '', item.note || '']))
+    } else {
+      procRows.push([cat.id, cat.name, '', '', '', ''])
+    }
+  })
+  const data = []
+  if (taskRows.length) data.push({ range: 'タスク!A2', values: taskRows })
+  if (dashRows.length) data.push({ range: 'ダッシュボード!A2', values: dashRows })
+  if (procRows.length) data.push({ range: '手順書!A2', values: procRows })
+  if (data.length) {
+    await sheetsApi('POST', `${SHEETS_API_BASE}/${ssId}/values:batchUpdate`, token, {
+      valueInputOption: 'RAW', data,
+    })
   }
 }
 
@@ -1291,80 +1405,66 @@ export default function App() {
   // Google Sheets から初回読み込み
   useEffect(() => {
     const load = async () => {
-      if (!userEmail || !SHEETS_API_URL || !accessToken) {
+      if (!userEmail || !accessToken) {
         setSyncStatus('local')
         setHasLoaded(true)
         return
       }
       try {
-        // キャッシュバスターでブラウザキャッシュを回避
-        const res = await fetch(`${SHEETS_API_URL}?t=${Date.now()}&email=${encodeURIComponent(userEmail)}`, {
-          headers: { Authorization: 'Bearer ' + accessToken },
-        })
-        const text = await res.text()
-        if (text && text.trim() !== '{}') {
-          let data
-          try { data = JSON.parse(text) } catch { setSyncStatus('error'); setHasLoaded(true); return }
-          if (!data) { setSyncStatus('error'); setHasLoaded(true); return }
-          // スプレッドシートが空（初回・移行直後）の場合はローカルデータを保持する
-          const isEmpty = Array.isArray(data.tasks) && data.tasks.length === 0 &&
-            data.dashboard && Object.values(data.dashboard).every(arr => Array.isArray(arr) && arr.length === 0)
-          if (!isEmpty) {
-            // タスク：GASにないローカルのタスクを保持 + updatedAtで新しい方を優先
-            if (Array.isArray(data.tasks)) {
-              setTasks(prev => {
-                const localMap = new Map(prev.map(t => [t.id, t]))
-                const gasIds = new Set(data.tasks.map(t => t.id))
-                const localOnly = prev.filter(t => !gasIds.has(t.id))
-                const merged = data.tasks.map(gasTask => {
-                  const local = localMap.get(gasTask.id)
-                  if (!local) return gasTask
-                  const gasTime = gasTask.updatedAt || gasTask.createdAt || ''
-                  const localTime = local.updatedAt || local.createdAt || ''
-                  return localTime > gasTime ? local : gasTask
-                })
-                return [...merged, ...localOnly]
-              })
-            }
-            // ダッシュボード：GASデータを基本としつつ、ロード中の変更やrecurrenceを保持
-            if (data.dashboard && typeof data.dashboard === 'object') {
-              setDashboard(prev => {
-                const merged = {}
-                const allCatIds = new Set([...Object.keys(data.dashboard), ...Object.keys(prev)])
-                allCatIds.forEach(catId => {
-                  const gasItems = data.dashboard[catId] || []
-                  const localItems = prev[catId] || []
-                  const gasIds = new Set(gasItems.map(i => i.id))
-                  const localOnly = localItems.filter(i => !gasIds.has(i.id))
-                  merged[catId] = [
-                    ...gasItems.map(gasItem => {
-                      const localItem = localItems.find(i => i.id === gasItem.id)
-                      if (!localItem) return gasItem
-                      if (localItem.recurrence?.type !== 'none' &&
-                          (!gasItem.recurrence || gasItem.recurrence.type === 'none')) {
-                        return { ...gasItem, recurrence: localItem.recurrence }
-                      }
-                      return gasItem
-                    }),
-                    ...localOnly,
-                  ]
-                })
-                return merged
-              })
-            }
-            // 手順書：GASデータを基本、ローカル追加分を保持
-            if (data.procedures && typeof data.procedures === 'object') {
-              setProcedures(prev => {
-                const gasCatIds = new Set((data.procedures.categories || []).map(c => c.id))
-                const localOnly = (prev.categories || []).filter(c => !gasCatIds.has(c.id))
-                return { categories: [...(data.procedures.categories || []), ...localOnly] }
-              })
-            }
-          }
-          if (data.spreadsheetUrl) {
-            setSpreadsheetUrl(data.spreadsheetUrl)
-            localStorage.setItem('spreadsheet-url', data.spreadsheetUrl)
-          }
+        const ssId = await getOrCreateSpreadsheet(accessToken, storageKeys.ssId)
+        const ssUrl = `https://docs.google.com/spreadsheets/d/${ssId}`
+        setSpreadsheetUrl(ssUrl)
+        localStorage.setItem('spreadsheet-url', ssUrl)
+
+        const data = await loadFromSheets(accessToken, ssId)
+        // スプレッドシートが空（初回・移行直後）の場合はローカルデータを保持する
+        const isEmpty = data.tasks.length === 0 &&
+          Object.values(data.dashboard).every(arr => arr.length === 0)
+        if (!isEmpty) {
+          // タスク：シートにないローカルのタスクを保持 + updatedAtで新しい方を優先
+          setTasks(prev => {
+            const localMap = new Map(prev.map(t => [t.id, t]))
+            const sheetIds = new Set(data.tasks.map(t => t.id))
+            const localOnly = prev.filter(t => !sheetIds.has(t.id))
+            const merged = data.tasks.map(sheetTask => {
+              const local = localMap.get(sheetTask.id)
+              if (!local) return sheetTask
+              const sheetTime = sheetTask.updatedAt || sheetTask.createdAt || ''
+              const localTime  = local.updatedAt  || local.createdAt  || ''
+              return localTime > sheetTime ? local : sheetTask
+            })
+            return [...merged, ...localOnly]
+          })
+          // ダッシュボード
+          setDashboard(prev => {
+            const merged = {}
+            const allCatIds = new Set([...Object.keys(data.dashboard), ...Object.keys(prev)])
+            allCatIds.forEach(catId => {
+              const sheetItems = data.dashboard[catId] || []
+              const localItems = prev[catId] || []
+              const sheetIds   = new Set(sheetItems.map(i => i.id))
+              const localOnly  = localItems.filter(i => !sheetIds.has(i.id))
+              merged[catId] = [
+                ...sheetItems.map(sheetItem => {
+                  const localItem = localItems.find(i => i.id === sheetItem.id)
+                  if (!localItem) return sheetItem
+                  if (localItem.recurrence?.type !== 'none' &&
+                      (!sheetItem.recurrence || sheetItem.recurrence.type === 'none')) {
+                    return { ...sheetItem, recurrence: localItem.recurrence }
+                  }
+                  return sheetItem
+                }),
+                ...localOnly,
+              ]
+            })
+            return merged
+          })
+          // 手順書
+          setProcedures(prev => {
+            const sheetCatIds = new Set((data.procedures.categories || []).map(c => c.id))
+            const localOnly   = (prev.categories || []).filter(c => !sheetCatIds.has(c.id))
+            return { categories: [...(data.procedures.categories || []), ...localOnly] }
+          })
         }
         setSyncStatus('synced')
       } catch {
@@ -1378,26 +1478,20 @@ export default function App() {
   // データ変更時に Google Sheets へ同期（1.5秒デバウンス）
   useEffect(() => {
     if (!hasLoaded) return
-    if (!userEmail || !SHEETS_API_URL || !accessToken) { setSyncStatus('local'); return }
+    if (!userEmail || !accessToken) { setSyncStatus('local'); return }
     setSyncStatus('saving')
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
     syncTimerRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(SHEETS_API_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'text/plain;charset=UTF-8',
-            Authorization: 'Bearer ' + accessToken,
-          },
-          body: JSON.stringify({ tasks, dashboard, procedures, savedAt: new Date().toISOString(), email: userEmail }),
-        })
-        const result = await res.json()
-        setSyncStatus(result?.ok ? 'synced' : 'error')
+        const ssId = localStorage.getItem(storageKeys.ssId)
+        if (!ssId) { setSyncStatus('error'); return }
+        await saveToSheets(accessToken, ssId, { tasks, dashboard, procedures })
+        setSyncStatus('synced')
       } catch {
         setSyncStatus('error')
       }
     }, 1500)
-  }, [tasks, dashboard, procedures, hasLoaded, userEmail])
+  }, [tasks, dashboard, procedures, hasLoaded, userEmail, accessToken, storageKeys])
 
   const addTask = (fields) => {
     const now = new Date().toISOString()
