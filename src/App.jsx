@@ -49,6 +49,8 @@ function migrateStorageKeys(email) {
     [`hachiware-tasks-${oldSafe}-v1`,          `hachiware-tasks-${newSafe}-v2`],
     [`hachiware-dashboard-${oldSafe}-v1`,       `hachiware-dashboard-${newSafe}-v2`],
     [`hachiware-procedures-${oldSafe}-v1`,      `hachiware-procedures-${newSafe}-v2`],
+    [`hachiware-ss-id-${oldSafe}`,              `hachiware-ss-id-${newSafe}`],
+    [`hachiware-spreadsheet-url-${oldSafe}`,    `hachiware-spreadsheet-url-${newSafe}`],
   ]
   keyPairs.forEach(([oldKey, newKey]) => {
     if (localStorage.getItem(newKey) === null) {
@@ -1413,7 +1415,10 @@ export default function App() {
   const [accessToken, setAccessToken]   = useState(() => sessionStorage.getItem('gis-access-token') ?? null)
 
   // 初期化時に1回だけキーを計算し、3つの state 初期値で共有
-  const _initKeys = getStorageKeys(sessionStorage.getItem('gis-user-email'))
+  // ページリロード時（sessionStorageにemailがある場合）もマイグレーションを実行する
+  const _initialEmail = sessionStorage.getItem('gis-user-email')
+  migrateStorageKeys(_initialEmail)
+  const _initKeys = getStorageKeys(_initialEmail)
   const [tasks, setTasks] = useState(() => {
     try { return JSON.parse(localStorage.getItem(_initKeys.tasks)      ?? 'null') ?? []                                       } catch { return [] }
   })
