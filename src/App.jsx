@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useMemo, 
 import {
   Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2,
   Clock,
-  Pencil, X, Check, Link as LinkIcon, Cloud, CloudOff, LogOut, Settings, ExternalLink
+  Pencil, X, Check, Cloud, CloudOff, LogOut, Settings, ExternalLink
 } from 'lucide-react'
 import catLogo from './assets/cat_Image.png'
 import catBlack from './assets/cat_black.png'
@@ -1245,7 +1245,7 @@ function TaskInputForm({ onAdd }) {
                   {links.map(link => (
                     <div key={link.id} className="flex items-center gap-1.5 mb-1 px-2 py-1 bg-white rounded-lg border border-gray-100">
                       <LinkSvgIcon size={10} className="text-[#4AAEC0] flex-shrink-0" />
-                      <span className="text-xs text-gray-600 flex-1 truncate">{link.title}</span>
+                      <span className="text-xs text-gray-600 flex-1 truncate">{link.title || link.url}</span>
                       <button type="button" onClick={() => setLinks(prev => prev.filter(l => l.id !== link.id))} className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0">
                         <X size={11} />
                       </button>
