@@ -99,18 +99,39 @@ async function migrateSheetNames(token, ssId) {
 async function getOrCreateSpreadsheet(token, ssIdKey) {
   let ssId = localStorage.getItem(ssIdKey)
 
-  // Drive検索を常に実行し、最近更新された「Koto Note」を正規IDとして使用
-  // アプリは1.5秒ごとに自動保存するため、アクティブに使われているスプレッドシートが
-  // 最も modifiedTime が新しくなる → 古い空のスプレッドシートより確実に優先される
+  // Drive検索を常に実行し、データが最も多い「Koto Note」を正規IDとして使用
+  // 複数存在する場合（例：PC作成 + 携帯が誤って作成した空のもの）、
+  // タスク行数が最多のスプレッドシートを正規とみなす
+  // 行数が同じ（どれも空）場合は最近更新されたものを採用
   try {
     const q = `name='${SPREADSHEET_TITLE}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`
-    const res = await fetch(`${DRIVE_API_FILES}?q=${encodeURIComponent(q)}&fields=files(id)&orderBy=modifiedTime+desc&pageSize=1`, {
+    const res = await fetch(`${DRIVE_API_FILES}?q=${encodeURIComponent(q)}&fields=files(id)&orderBy=modifiedTime+desc&pageSize=5`, {
       headers: { Authorization: 'Bearer ' + token },
     })
     if (res.ok) {
       const data = await res.json()
-      const foundId = data.files?.[0]?.id
-      if (foundId) ssId = foundId  // Drive結果を優先（localStorageより信頼性が高い）
+      const files = data.files ?? []
+      if (files.length === 1) {
+        ssId = files[0].id
+      } else if (files.length > 1) {
+        // 複数ある場合: タスクシートの行数が最多のものを選択
+        let bestId = files[0].id  // デフォルト: 最近更新されたもの
+        let bestCount = -1
+        for (const file of files) {
+          try {
+            const r = await fetch(
+              `${SHEETS_API_BASE}/${file.id}/values/${encodeURIComponent('タスク!A2:A')}?majorDimension=COLUMNS`,
+              { headers: { Authorization: 'Bearer ' + token } }
+            )
+            if (r.ok) {
+              const d = await r.json()
+              const count = d.values?.[0]?.length ?? 0
+              if (count > bestCount) { bestCount = count; bestId = file.id }
+            }
+          } catch {}
+        }
+        ssId = bestId
+      }
     }
   } catch {}
 
