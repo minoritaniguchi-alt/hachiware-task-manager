@@ -59,7 +59,19 @@ async function getOrCreateSpreadsheet(token, ssIdKey) {
   const ssId = localStorage.getItem(ssIdKey)
   if (ssId) {
     try {
-      await sheetsApi('GET', `${SHEETS_API_BASE}/${ssId}?fields=spreadsheetId`, token)
+      const info = await sheetsApi('GET', `${SHEETS_API_BASE}/${ssId}?fields=sheets.properties(sheetId,title)`, token)
+      // 旧タブ名「手順書」→「リンク」マイグレーション
+      const sheets = info.sheets || []
+      const procSheet = sheets.find(s => s.properties.title === '手順書')
+      const hasLink   = sheets.some(s => s.properties.title === 'リンク')
+      if (procSheet && !hasLink) {
+        await sheetsApi('POST', `${SHEETS_API_BASE}/${ssId}:batchUpdate`, token, {
+          requests: [{ updateSheetProperties: {
+            properties: { sheetId: procSheet.properties.sheetId, title: 'リンク' },
+            fields: 'title',
+          }}],
+        })
+      }
       return ssId
     } catch {}
   }
