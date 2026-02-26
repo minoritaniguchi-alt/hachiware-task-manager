@@ -2038,7 +2038,7 @@ export default function App() {
             {diagInfo && (
               <details className="text-xs text-gray-500">
                 <summary className="cursor-pointer select-none py-1 hover:text-gray-700">🔍 診断情報</summary>
-                <div className="mt-2 bg-gray-50 rounded-xl p-3 space-y-1 font-mono break-all leading-relaxed">
+                <div className="mt-2 bg-gray-50 rounded-xl p-3 space-y-1 font-mono break-all leading-relaxed max-h-60 overflow-y-auto">
                   <p>📦 local: {diagInfo.localId ?? 'なし'}</p>
                   <p>🌐 Drive: HTTP {diagInfo.driveStatus ?? '-'}{diagInfo.driveError ? ` (${diagInfo.driveError})` : ''}</p>
                   {diagInfo.files.length === 0 && <p>📂 見つかったファイル: 0件</p>}
