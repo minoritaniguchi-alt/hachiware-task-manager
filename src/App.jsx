@@ -98,6 +98,7 @@ async function migrateSheetNames(token, ssId) {
 
 async function getOrCreateSpreadsheet(token, ssIdKey) {
   let ssId = localStorage.getItem(ssIdKey)
+  console.log('[SS] localStorage ssId:', ssId)
 
   // Drive検索を常に実行し、アクティブな「Koto Note」を正規IDとして使用
   // 複数存在する場合（例：PC作成 + 携帯が誤って作成した空のもの）：
@@ -109,11 +110,14 @@ async function getOrCreateSpreadsheet(token, ssIdKey) {
     const res = await fetch(`${DRIVE_API_FILES}?q=${encodeURIComponent(q)}&fields=files(id)&orderBy=modifiedTime+desc&pageSize=5`, {
       headers: { Authorization: 'Bearer ' + token },
     })
+    console.log('[SS] Drive search status:', res.status)
     if (res.ok) {
       const data = await res.json()
       const files = data.files ?? []
+      console.log('[SS] Drive found files:', files.map(f => f.id))
       if (files.length === 1) {
         ssId = files[0].id
+        console.log('[SS] Single file, using:', ssId)
       } else if (files.length > 1) {
         let bestId = files[0].id  // デフォルト: 最近更新されたもの
         let bestTime = -1
@@ -132,20 +136,28 @@ async function getOrCreateSpreadsheet(token, ssIdKey) {
                 const ts = row[9] ? new Date(row[9]).getTime() : 0  // 列J = 更新日時
                 if (ts > maxTime) maxTime = ts
               }
+              console.log(`[SS] file ${file.id}: rows=${rows.length}, maxTime=${maxTime ? new Date(maxTime).toISOString() : 'none'}`)
               if (maxTime > bestTime || (maxTime === bestTime && rows.length > bestRows)) {
                 bestTime = maxTime; bestRows = rows.length; bestId = file.id
               }
+            } else {
+              console.log(`[SS] file ${file.id}: Sheets fetch failed`, r.status)
             }
-          } catch {}
+          } catch (e) { console.log(`[SS] file ${file.id}: exception`, e) }
         }
         ssId = bestId
+        console.log('[SS] Selected best:', ssId)
       }
+    } else {
+      const errText = await res.text().catch(() => '')
+      console.log('[SS] Drive search failed:', res.status, errText)
     }
-  } catch {}
+  } catch (e) { console.log('[SS] Drive search exception:', e) }
 
   if (ssId) {
     try { await migrateSheetNames(token, ssId) } catch {}  // 失敗しても続行
     localStorage.setItem(ssIdKey, ssId)
+    console.log('[SS] Final ssId:', ssId)
     return ssId
   }
   // マイドライブに新規作成
