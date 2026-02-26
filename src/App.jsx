@@ -25,6 +25,7 @@ const normalizeUrl = (url) => {
 // ─── 定数 ───────────────────────────────────────────────
 const GIS_CLIENT_ID     = import.meta.env.VITE_GIS_CLIENT_ID ?? ''
 const SHEETS_API_BASE   = 'https://sheets.googleapis.com/v4/spreadsheets'
+const DRIVE_API_FILES   = 'https://www.googleapis.com/drive/v3/files'
 const SPREADSHEET_TITLE = 'Koto Note'
 
 function getStorageKeys(email) {
@@ -55,26 +56,47 @@ async function sheetsApi(method, url, token, body) {
   return res.json()
 }
 
+// 旧タブ名「手順書」→「リンク」マイグレーション
+async function migrateSheetNames(token, ssId) {
+  const info = await sheetsApi('GET', `${SHEETS_API_BASE}/${ssId}?fields=sheets.properties(sheetId,title)`, token)
+  const sheets    = info.sheets || []
+  const procSheet = sheets.find(s => s.properties.title === '手順書')
+  const hasLink   = sheets.some(s => s.properties.title === 'リンク')
+  if (procSheet && !hasLink) {
+    await sheetsApi('POST', `${SHEETS_API_BASE}/${ssId}:batchUpdate`, token, {
+      requests: [{ updateSheetProperties: {
+        properties: { sheetId: procSheet.properties.sheetId, title: 'リンク' },
+        fields: 'title',
+      }}],
+    })
+  }
+}
+
 async function getOrCreateSpreadsheet(token, ssIdKey) {
   const ssId = localStorage.getItem(ssIdKey)
   if (ssId) {
     try {
-      const info = await sheetsApi('GET', `${SHEETS_API_BASE}/${ssId}?fields=sheets.properties(sheetId,title)`, token)
-      // 旧タブ名「手順書」→「リンク」マイグレーション
-      const sheets = info.sheets || []
-      const procSheet = sheets.find(s => s.properties.title === '手順書')
-      const hasLink   = sheets.some(s => s.properties.title === 'リンク')
-      if (procSheet && !hasLink) {
-        await sheetsApi('POST', `${SHEETS_API_BASE}/${ssId}:batchUpdate`, token, {
-          requests: [{ updateSheetProperties: {
-            properties: { sheetId: procSheet.properties.sheetId, title: 'リンク' },
-            fields: 'title',
-          }}],
-        })
-      }
+      await migrateSheetNames(token, ssId)
       return ssId
     } catch {}
   }
+
+  // Drive で既存の「Koto Note」スプレッドシートを検索（他デバイスで作成済みの場合に使い回す）
+  try {
+    const q = `name='${SPREADSHEET_TITLE}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`
+    const res = await fetch(`${DRIVE_API_FILES}?q=${encodeURIComponent(q)}&fields=files(id)&orderBy=createdTime&pageSize=1`, {
+      headers: { Authorization: 'Bearer ' + token },
+    })
+    if (res.ok) {
+      const data = await res.json()
+      const foundId = data.files?.[0]?.id
+      if (foundId) {
+        await migrateSheetNames(token, foundId)
+        localStorage.setItem(ssIdKey, foundId)
+        return foundId
+      }
+    }
+  } catch {}
   // マイドライブに新規作成
   const ss = await sheetsApi('POST', SHEETS_API_BASE, token, {
     properties: { title: SPREADSHEET_TITLE },
@@ -1427,7 +1449,7 @@ export default function App() {
       if (!window.google?.accounts?.oauth2) return
       tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
         client_id: GIS_CLIENT_ID,
-        scope: 'https://www.googleapis.com/auth/spreadsheets',
+        scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.metadata.readonly',
         callback: (res) => {
           if (res.access_token) {
             setAccessToken(res.access_token)
