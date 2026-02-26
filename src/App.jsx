@@ -1828,7 +1828,7 @@ export default function App() {
       {/* ダッシュボードタブ */}
       {activeTab === 'dashboard' && (
         <main className="max-w-4xl mx-auto px-6 py-7">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-[fade-in_0.3s_ease-out]">
+          <div className="grid grid-cols-1 gap-4 animate-[fade-in_0.3s_ease-out]">
             {DASHBOARD_CATEGORIES.map(cat => (
               <DashboardCard key={cat.id} category={cat} items={dashboard[cat.id] || []}
                 onAdd={addDashboardItem} onDelete={deleteDashboardItem}
