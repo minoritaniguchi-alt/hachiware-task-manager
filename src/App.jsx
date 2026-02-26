@@ -97,8 +97,9 @@ async function migrateSheetNames(token, ssId) {
 }
 
 async function getOrCreateSpreadsheet(token, ssIdKey) {
+  const diag = { localId: null, driveStatus: null, driveError: null, files: [], selectedId: null, created: false }
   let ssId = localStorage.getItem(ssIdKey)
-  console.log('[SS] localStorage ssId:', ssId)
+  diag.localId = ssId
 
   // Drive検索を常に実行し、アクティブな「Koto Note」を正規IDとして使用
   // 複数存在する場合（例：PC作成 + 携帯が誤って作成した空のもの）：
@@ -110,55 +111,54 @@ async function getOrCreateSpreadsheet(token, ssIdKey) {
     const res = await fetch(`${DRIVE_API_FILES}?q=${encodeURIComponent(q)}&fields=files(id)&orderBy=modifiedTime+desc&pageSize=5`, {
       headers: { Authorization: 'Bearer ' + token },
     })
-    console.log('[SS] Drive search status:', res.status)
+    diag.driveStatus = res.status
     if (res.ok) {
       const data = await res.json()
       const files = data.files ?? []
-      console.log('[SS] Drive found files:', files.map(f => f.id))
       if (files.length === 1) {
         ssId = files[0].id
-        console.log('[SS] Single file, using:', ssId)
+        diag.files = [{ id: files[0].id, rows: '?', latestTime: '-' }]
       } else if (files.length > 1) {
-        let bestId = files[0].id  // デフォルト: 最近更新されたもの
+        let bestId = files[0].id
         let bestTime = -1
         let bestRows = -1
         for (const file of files) {
+          const entry = { id: file.id, rows: 0, latestTime: '-', sheetsStatus: null }
           try {
             const r = await fetch(
               `${SHEETS_API_BASE}/${file.id}/values/${encodeURIComponent('タスク!A2:J')}`,
               { headers: { Authorization: 'Bearer ' + token } }
             )
+            entry.sheetsStatus = r.status
             if (r.ok) {
               const d = await r.json()
               const rows = d.values ?? []
+              entry.rows = rows.length
               let maxTime = 0
               for (const row of rows) {
-                const ts = row[9] ? new Date(row[9]).getTime() : 0  // 列J = 更新日時
+                const ts = row[9] ? new Date(row[9]).getTime() : 0
                 if (ts > maxTime) maxTime = ts
               }
-              console.log(`[SS] file ${file.id}: rows=${rows.length}, maxTime=${maxTime ? new Date(maxTime).toISOString() : 'none'}`)
+              entry.latestTime = maxTime ? new Date(maxTime).toLocaleString('ja-JP') : '-'
               if (maxTime > bestTime || (maxTime === bestTime && rows.length > bestRows)) {
                 bestTime = maxTime; bestRows = rows.length; bestId = file.id
               }
-            } else {
-              console.log(`[SS] file ${file.id}: Sheets fetch failed`, r.status)
             }
-          } catch (e) { console.log(`[SS] file ${file.id}: exception`, e) }
+          } catch (e) { entry.sheetsStatus = `error: ${e.message}` }
+          diag.files.push(entry)
         }
         ssId = bestId
-        console.log('[SS] Selected best:', ssId)
       }
     } else {
-      const errText = await res.text().catch(() => '')
-      console.log('[SS] Drive search failed:', res.status, errText)
+      diag.driveError = await res.text().catch(() => `HTTP ${res.status}`)
     }
-  } catch (e) { console.log('[SS] Drive search exception:', e) }
+  } catch (e) { diag.driveError = e.message }
 
   if (ssId) {
-    try { await migrateSheetNames(token, ssId) } catch {}  // 失敗しても続行
+    try { await migrateSheetNames(token, ssId) } catch {}
     localStorage.setItem(ssIdKey, ssId)
-    console.log('[SS] Final ssId:', ssId)
-    return ssId
+    diag.selectedId = ssId
+    return { ssId, diag }
   }
   // マイドライブに新規作成
   const ss = await sheetsApi('POST', SHEETS_API_BASE, token, {
@@ -179,7 +179,9 @@ async function getOrCreateSpreadsheet(token, ssIdKey) {
     ],
   })
   localStorage.setItem(ssIdKey, ss.spreadsheetId)
-  return ss.spreadsheetId
+  diag.selectedId = ss.spreadsheetId
+  diag.created = true
+  return { ssId: ss.spreadsheetId, diag }
 }
 
 function safeParseJSON(str, fallback) {
@@ -1479,6 +1481,7 @@ export default function App() {
   const [syncStatus, setSyncStatus]               = useState('loading')
   const [hasLoaded, setHasLoaded]                 = useState(false)
   const [showSettings, setShowSettings]           = useState(false)
+  const [diagInfo, setDiagInfo]                   = useState(null)
   const [spreadsheetUrl, setSpreadsheetUrl]       = useState(() => localStorage.getItem(_initKeys.spreadsheetUrl) ?? null)
   const [editingSpreadsheetUrl, setEditingSpreadsheetUrl] = useState('')
   const syncTimerRef = useRef(null)
@@ -1559,7 +1562,8 @@ export default function App() {
         return
       }
       try {
-        const ssId = await getOrCreateSpreadsheet(accessToken, storageKeys.ssId)
+        const { ssId, diag } = await getOrCreateSpreadsheet(accessToken, storageKeys.ssId)
+        setDiagInfo(diag)
         const ssUrl = `https://docs.google.com/spreadsheets/d/${ssId}`
         setSpreadsheetUrl(ssUrl)
         localStorage.setItem(storageKeys.spreadsheetUrl, ssUrl)
@@ -2028,6 +2032,25 @@ export default function App() {
                   </button>
                 </div>
               </div>
+            )}
+
+            {/* 診断情報 */}
+            {diagInfo && (
+              <details className="text-xs text-gray-500">
+                <summary className="cursor-pointer select-none py-1 hover:text-gray-700">🔍 診断情報</summary>
+                <div className="mt-2 bg-gray-50 rounded-xl p-3 space-y-1 font-mono break-all leading-relaxed">
+                  <p>📦 local: {diagInfo.localId ?? 'なし'}</p>
+                  <p>🌐 Drive: HTTP {diagInfo.driveStatus ?? '-'}{diagInfo.driveError ? ` (${diagInfo.driveError})` : ''}</p>
+                  {diagInfo.files.length === 0 && <p>📂 見つかったファイル: 0件</p>}
+                  {diagInfo.files.map((f, i) => (
+                    <div key={f.id} className={`pl-2 border-l-2 ${f.id === diagInfo.selectedId ? 'border-green-400' : 'border-gray-300'}`}>
+                      <p>#{i+1} {f.id === diagInfo.selectedId ? '✅' : '　'} {f.id}</p>
+                      <p className="pl-2">行数:{f.rows} 最終更新:{f.latestTime}{f.sheetsStatus && f.sheetsStatus !== 200 ? ` (Sheets:${f.sheetsStatus})` : ''}</p>
+                    </div>
+                  ))}
+                  <p>✨ 選択: {diagInfo.selectedId ?? 'なし'}{diagInfo.created ? ' (新規作成)' : ''}</p>
+                </div>
+              </details>
             )}
 
             {/* ログアウト */}
