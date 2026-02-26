@@ -99,10 +99,11 @@ async function migrateSheetNames(token, ssId) {
 async function getOrCreateSpreadsheet(token, ssIdKey) {
   let ssId = localStorage.getItem(ssIdKey)
 
-  // Drive検索を常に実行し、データが最も多い「Koto Note」を正規IDとして使用
-  // 複数存在する場合（例：PC作成 + 携帯が誤って作成した空のもの）、
-  // タスク行数が最多のスプレッドシートを正規とみなす
-  // 行数が同じ（どれも空）場合は最近更新されたものを採用
+  // Drive検索を常に実行し、アクティブな「Koto Note」を正規IDとして使用
+  // 複数存在する場合（例：PC作成 + 携帯が誤って作成した空のもの）：
+  //   1. タスクの更新日時（列J）が最新のものをアクティブとみなす
+  //   2. 更新日時が同じ（どれも空など）なら行数が多いものを優先
+  //   3. 同じ行数なら最近更新されたもの（Drive結果の先頭）を採用
   try {
     const q = `name='${SPREADSHEET_TITLE}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`
     const res = await fetch(`${DRIVE_API_FILES}?q=${encodeURIComponent(q)}&fields=files(id)&orderBy=modifiedTime+desc&pageSize=5`, {
@@ -114,19 +115,26 @@ async function getOrCreateSpreadsheet(token, ssIdKey) {
       if (files.length === 1) {
         ssId = files[0].id
       } else if (files.length > 1) {
-        // 複数ある場合: タスクシートの行数が最多のものを選択
         let bestId = files[0].id  // デフォルト: 最近更新されたもの
-        let bestCount = -1
+        let bestTime = -1
+        let bestRows = -1
         for (const file of files) {
           try {
             const r = await fetch(
-              `${SHEETS_API_BASE}/${file.id}/values/${encodeURIComponent('タスク!A2:A')}?majorDimension=COLUMNS`,
+              `${SHEETS_API_BASE}/${file.id}/values/${encodeURIComponent('タスク!A2:J')}`,
               { headers: { Authorization: 'Bearer ' + token } }
             )
             if (r.ok) {
               const d = await r.json()
-              const count = d.values?.[0]?.length ?? 0
-              if (count > bestCount) { bestCount = count; bestId = file.id }
+              const rows = d.values ?? []
+              let maxTime = 0
+              for (const row of rows) {
+                const ts = row[9] ? new Date(row[9]).getTime() : 0  // 列J = 更新日時
+                if (ts > maxTime) maxTime = ts
+              }
+              if (maxTime > bestTime || (maxTime === bestTime && rows.length > bestRows)) {
+                bestTime = maxTime; bestRows = rows.length; bestId = file.id
+              }
             }
           } catch {}
         }
