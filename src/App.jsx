@@ -97,15 +97,10 @@ async function migrateSheetNames(token, ssId) {
 }
 
 async function getOrCreateSpreadsheet(token, ssIdKey) {
-  const ssId = localStorage.getItem(ssIdKey)
-  if (ssId) {
-    try {
-      await migrateSheetNames(token, ssId)
-      return ssId
-    } catch {}
-  }
+  let ssId = localStorage.getItem(ssIdKey)
 
-  // Drive で既存の「Koto Note」スプレッドシートを検索（他デバイスで作成済みの場合に使い回す）
+  // Drive検索を常に実行し、最古の「Koto Note」を正規IDとして使用
+  // （他デバイスで作成済みのスプレッドシートを確実に発見するため）
   try {
     const q = `name='${SPREADSHEET_TITLE}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`
     const res = await fetch(`${DRIVE_API_FILES}?q=${encodeURIComponent(q)}&fields=files(id)&orderBy=createdTime&pageSize=1`, {
@@ -114,13 +109,15 @@ async function getOrCreateSpreadsheet(token, ssIdKey) {
     if (res.ok) {
       const data = await res.json()
       const foundId = data.files?.[0]?.id
-      if (foundId) {
-        await migrateSheetNames(token, foundId)
-        localStorage.setItem(ssIdKey, foundId)
-        return foundId
-      }
+      if (foundId) ssId = foundId  // Drive結果を優先（localStorageより信頼性が高い）
     }
   } catch {}
+
+  if (ssId) {
+    try { await migrateSheetNames(token, ssId) } catch {}  // 失敗しても続行
+    localStorage.setItem(ssIdKey, ssId)
+    return ssId
+  }
   // マイドライブに新規作成
   const ss = await sheetsApi('POST', SHEETS_API_BASE, token, {
     properties: { title: SPREADSHEET_TITLE },
