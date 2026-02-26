@@ -99,11 +99,12 @@ async function migrateSheetNames(token, ssId) {
 async function getOrCreateSpreadsheet(token, ssIdKey) {
   let ssId = localStorage.getItem(ssIdKey)
 
-  // Drive検索を常に実行し、最古の「Koto Note」を正規IDとして使用
-  // （他デバイスで作成済みのスプレッドシートを確実に発見するため）
+  // Drive検索を常に実行し、最近更新された「Koto Note」を正規IDとして使用
+  // アプリは1.5秒ごとに自動保存するため、アクティブに使われているスプレッドシートが
+  // 最も modifiedTime が新しくなる → 古い空のスプレッドシートより確実に優先される
   try {
     const q = `name='${SPREADSHEET_TITLE}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`
-    const res = await fetch(`${DRIVE_API_FILES}?q=${encodeURIComponent(q)}&fields=files(id)&orderBy=createdTime&pageSize=1`, {
+    const res = await fetch(`${DRIVE_API_FILES}?q=${encodeURIComponent(q)}&fields=files(id)&orderBy=modifiedTime+desc&pageSize=1`, {
       headers: { Authorization: 'Bearer ' + token },
     })
     if (res.ok) {
