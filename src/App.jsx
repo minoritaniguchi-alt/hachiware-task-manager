@@ -582,7 +582,7 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
                       {item.links.map(link => (
                         <a key={link.id} href={link.url} target="_blank" rel="noopener noreferrer"
                           onClick={e => e.stopPropagation()}
-                          className="inline-flex items-center gap-1 text-xs text-[#4AAEC0] hover:underline w-fit">
+                          className="inline-flex items-center gap-1 text-xs text-[#C4855A] hover:underline w-fit">
                           <LinkSvgIcon size={10} />{link.title || link.url}
                         </a>
                       ))}
