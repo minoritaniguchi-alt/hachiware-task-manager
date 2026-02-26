@@ -97,9 +97,8 @@ async function migrateSheetNames(token, ssId) {
 }
 
 async function getOrCreateSpreadsheet(token, ssIdKey) {
-  const diag = { localId: null, driveStatus: null, driveError: null, driveApiDisabled: false, files: [], selectedId: null, created: false }
   let ssId = localStorage.getItem(ssIdKey)
-  diag.localId = ssId
+  let driveApiDisabled = false
 
   // Drive検索を常に実行し、アクティブな「Koto Note」を正規IDとして使用
   // 複数存在する場合（例：PC作成 + 携帯が誤って作成した空のもの）：
@@ -111,58 +110,49 @@ async function getOrCreateSpreadsheet(token, ssIdKey) {
     const res = await fetch(`${DRIVE_API_FILES}?q=${encodeURIComponent(q)}&fields=files(id)&orderBy=modifiedTime+desc&pageSize=5`, {
       headers: { Authorization: 'Bearer ' + token },
     })
-    diag.driveStatus = res.status
     if (res.ok) {
       const data = await res.json()
       const files = data.files ?? []
       if (files.length === 1) {
         ssId = files[0].id
-        diag.files = [{ id: files[0].id, rows: '?', latestTime: '-' }]
       } else if (files.length > 1) {
         let bestId = files[0].id
         let bestTime = -1
         let bestRows = -1
         for (const file of files) {
-          const entry = { id: file.id, rows: 0, latestTime: '-', sheetsStatus: null }
           try {
             const r = await fetch(
               `${SHEETS_API_BASE}/${file.id}/values/${encodeURIComponent('タスク!A2:J')}`,
               { headers: { Authorization: 'Bearer ' + token } }
             )
-            entry.sheetsStatus = r.status
             if (r.ok) {
               const d = await r.json()
               const rows = d.values ?? []
-              entry.rows = rows.length
               let maxTime = 0
               for (const row of rows) {
                 const ts = row[9] ? new Date(row[9]).getTime() : 0
                 if (ts > maxTime) maxTime = ts
               }
-              entry.latestTime = maxTime ? new Date(maxTime).toLocaleString('ja-JP') : '-'
               if (maxTime > bestTime || (maxTime === bestTime && rows.length > bestRows)) {
                 bestTime = maxTime; bestRows = rows.length; bestId = file.id
               }
             }
-          } catch (e) { entry.sheetsStatus = `error: ${e.message}` }
-          diag.files.push(entry)
+          } catch {}
         }
         ssId = bestId
       }
     } else {
       const errText = await res.text().catch(() => '')
-      diag.driveError = errText || `HTTP ${res.status}`
       if (errText.includes('SERVICE_DISABLED') || errText.includes('accessNotConfigured')) {
-        diag.driveApiDisabled = true
+        driveApiDisabled = true
       }
     }
-  } catch (e) { diag.driveError = e.message }
+  } catch {}
 
   if (ssId) {
     try { await migrateSheetNames(token, ssId) } catch {}
     localStorage.setItem(ssIdKey, ssId)
-    diag.selectedId = ssId
-    return { ssId, diag }
+    return { ssId, driveApiDisabled }
   }
   // マイドライブに新規作成
   const ss = await sheetsApi('POST', SHEETS_API_BASE, token, {
@@ -183,9 +173,7 @@ async function getOrCreateSpreadsheet(token, ssIdKey) {
     ],
   })
   localStorage.setItem(ssIdKey, ss.spreadsheetId)
-  diag.selectedId = ss.spreadsheetId
-  diag.created = true
-  return { ssId: ss.spreadsheetId, diag }
+  return { ssId: ss.spreadsheetId, driveApiDisabled }
 }
 
 function safeParseJSON(str, fallback) {
@@ -1485,7 +1473,6 @@ export default function App() {
   const [syncStatus, setSyncStatus]               = useState('loading')
   const [hasLoaded, setHasLoaded]                 = useState(false)
   const [showSettings, setShowSettings]           = useState(false)
-  const [diagInfo, setDiagInfo]                   = useState(null)
   const [spreadsheetUrl, setSpreadsheetUrl]       = useState(() => localStorage.getItem(_initKeys.spreadsheetUrl) ?? null)
   const [editingSpreadsheetUrl, setEditingSpreadsheetUrl] = useState('')
   const syncTimerRef = useRef(null)
@@ -1566,9 +1553,8 @@ export default function App() {
         return
       }
       try {
-        const { ssId, diag } = await getOrCreateSpreadsheet(accessToken, storageKeys.ssId)
-        setDiagInfo(diag)
-        if (diag.driveApiDisabled) setToast(TOAST_MSGS.driveDisabled)
+        const { ssId, driveApiDisabled } = await getOrCreateSpreadsheet(accessToken, storageKeys.ssId)
+        if (driveApiDisabled) setToast(TOAST_MSGS.driveDisabled)
         const ssUrl = `https://docs.google.com/spreadsheets/d/${ssId}`
         setSpreadsheetUrl(ssUrl)
         localStorage.setItem(storageKeys.spreadsheetUrl, ssUrl)
@@ -2037,25 +2023,6 @@ export default function App() {
                   </button>
                 </div>
               </div>
-            )}
-
-            {/* 診断情報 */}
-            {diagInfo && (
-              <details className="text-xs text-gray-500">
-                <summary className="cursor-pointer select-none py-1 hover:text-gray-700">🔍 診断情報</summary>
-                <div className="mt-2 bg-gray-50 rounded-xl p-3 space-y-1 font-mono break-all leading-relaxed max-h-60 overflow-y-auto">
-                  <p>📦 local: {diagInfo.localId ?? 'なし'}</p>
-                  <p>🌐 Drive: HTTP {diagInfo.driveStatus ?? '-'}{diagInfo.driveError ? ` (${diagInfo.driveError})` : ''}</p>
-                  {diagInfo.files.length === 0 && <p>📂 見つかったファイル: 0件</p>}
-                  {diagInfo.files.map((f, i) => (
-                    <div key={f.id} className={`pl-2 border-l-2 ${f.id === diagInfo.selectedId ? 'border-green-400' : 'border-gray-300'}`}>
-                      <p>#{i+1} {f.id === diagInfo.selectedId ? '✅' : '　'} {f.id}</p>
-                      <p className="pl-2">行数:{f.rows} 最終更新:{f.latestTime}{f.sheetsStatus && f.sheetsStatus !== 200 ? ` (Sheets:${f.sheetsStatus})` : ''}</p>
-                    </div>
-                  ))}
-                  <p>✨ 選択: {diagInfo.selectedId ?? 'なし'}{diagInfo.created ? ' (新規作成)' : ''}</p>
-                </div>
-              </details>
             )}
 
             {/* ログアウト */}
