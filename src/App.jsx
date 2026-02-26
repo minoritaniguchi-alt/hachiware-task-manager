@@ -29,14 +29,36 @@ const DRIVE_API_FILES   = 'https://www.googleapis.com/drive/v3/files'
 const SPREADSHEET_TITLE = 'Koto Note'
 
 function getStorageKeys(email) {
-  const safe = email ? email.replace(/[@.]/g, '_') : 'anonymous'
+  // メールアドレスをそのままキーに使う（localStorageキーは任意文字列を受け付けるため衝突なし）
+  const safe = email ?? 'anonymous'
   return {
-    tasks:          `hachiware-tasks-${safe}-v1`,
-    dashboard:      `hachiware-dashboard-${safe}-v1`,
-    procedures:     `hachiware-procedures-${safe}-v1`,
+    tasks:          `hachiware-tasks-${safe}-v2`,
+    dashboard:      `hachiware-dashboard-${safe}-v2`,
+    procedures:     `hachiware-procedures-${safe}-v2`,
     ssId:           `hachiware-ss-id-${safe}`,
     spreadsheetUrl: `hachiware-spreadsheet-url-${safe}`,
   }
+}
+
+// v1形式の旧キー（@と.を_に変換）→ v2形式へのマイグレーション
+function migrateStorageKeys(email) {
+  if (!email) return
+  const oldSafe = email.replace(/[@.]/g, '_')
+  const newSafe = email
+  const keyPairs = [
+    [`hachiware-tasks-${oldSafe}-v1`,          `hachiware-tasks-${newSafe}-v2`],
+    [`hachiware-dashboard-${oldSafe}-v1`,       `hachiware-dashboard-${newSafe}-v2`],
+    [`hachiware-procedures-${oldSafe}-v1`,      `hachiware-procedures-${newSafe}-v2`],
+  ]
+  keyPairs.forEach(([oldKey, newKey]) => {
+    if (localStorage.getItem(newKey) === null) {
+      const val = localStorage.getItem(oldKey)
+      if (val !== null) {
+        localStorage.setItem(newKey, val)
+        localStorage.removeItem(oldKey)
+      }
+    }
+  })
 }
 
 // ─── Google Sheets API ヘルパー ─────────────────────────
@@ -110,7 +132,7 @@ async function getOrCreateSpreadsheet(token, ssIdKey) {
   await sheetsApi('POST', `${SHEETS_API_BASE}/${ss.spreadsheetId}/values:batchUpdate`, token, {
     valueInputOption: 'RAW',
     data: [
-      { range: 'タスク!A1:I1',       values: [['ID','タイトル','詳細','進捗メモ','ステータス','期限','リンク','作成日時','完了日時']] },
+      { range: 'タスク!A1:J1',       values: [['ID','タイトル','詳細','進捗メモ','ステータス','期限','リンク','作成日時','完了日時','更新日時']] },
       { range: 'ダッシュボード!A1:G1', values: [['ID','カテゴリ','業務名','詳細','進捗メモ','リンク','スケジュール']] },
       { range: 'リンク!A1:F1',        values: [['カテゴリID','カテゴリ名','アイテムID','表示名','URL','備考']] },
     ],
@@ -119,17 +141,23 @@ async function getOrCreateSpreadsheet(token, ssIdKey) {
   return ss.spreadsheetId
 }
 
+function safeParseJSON(str, fallback) {
+  if (!str) return fallback
+  try { return JSON.parse(str) } catch { return fallback }
+}
+
 async function loadFromSheets(token, ssId) {
   const res = await sheetsApi('GET',
-    `${SHEETS_API_BASE}/${ssId}/values:batchGet?ranges=${encodeURIComponent('タスク!A2:I')}&ranges=${encodeURIComponent('ダッシュボード!A2:G')}&ranges=${encodeURIComponent('リンク!A2:F')}`,
+    `${SHEETS_API_BASE}/${ssId}/values:batchGet?ranges=${encodeURIComponent('タスク!A2:J')}&ranges=${encodeURIComponent('ダッシュボード!A2:G')}&ranges=${encodeURIComponent('リンク!A2:F')}`,
     token)
   const [taskVals, dashVals, procVals] = (res.valueRanges || []).map(r => r.values || [])
 
   const tasks = (taskVals || []).filter(r => r[0]).map(r => ({
     id: String(r[0]), title: r[1] || '', details: r[2] || '', memo: r[3] || '',
     status: r[4] || '', dueDate: r[5] || '',
-    links: r[6] ? JSON.parse(r[6]) : [],
+    links: safeParseJSON(r[6], []),
     createdAt: r[7] || '', completedAt: r[8] || null,
+    updatedAt: r[9] || '',
   }))
 
   const dashboard = { routine: [], adhoc: [], schedule: [] }
@@ -138,8 +166,8 @@ async function loadFromSheets(token, ssId) {
     if (dashboard[catId]) {
       dashboard[catId].push({
         id: String(r[0]), text: r[2] || '', details: r[3] || '', memo: r[4] || '',
-        links: r[5] ? JSON.parse(r[5]) : [],
-        recurrence: r[6] ? JSON.parse(r[6]) : { type: 'none' },
+        links: safeParseJSON(r[5], []),
+        recurrence: safeParseJSON(r[6], { type: 'none' }),
       })
     }
   })
@@ -157,11 +185,12 @@ async function loadFromSheets(token, ssId) {
 
 async function saveToSheets(token, ssId, { tasks, dashboard, procedures }) {
   await sheetsApi('POST', `${SHEETS_API_BASE}/${ssId}/values:batchClear`, token, {
-    ranges: ['タスク!A2:I', 'ダッシュボード!A2:G', 'リンク!A2:F'],
+    ranges: ['タスク!A2:J', 'ダッシュボード!A2:G', 'リンク!A2:F'],
   })
   const taskRows = tasks.map(t => [
     t.id, t.title, t.details || '', t.memo || '', t.status, t.dueDate || '',
     t.links?.length ? JSON.stringify(t.links) : '', t.createdAt || '', t.completedAt || '',
+    t.updatedAt || '',
   ])
   const dashRows = []
   Object.entries(dashboard).forEach(([catId, items]) => {
@@ -208,7 +237,7 @@ const DASHBOARD_CATEGORIES = [
 const PROC_COLORS = ['#A8D8EC', '#F8C8D4', '#B8E8D0', '#F8D4B8', '#D4C8EC', '#FFD0E8']
 const PROC_EAR_POSITIONS = ['top-left', 'top-center', 'top-right']
 
-const TOAST_MSGS = { add: 'タスクを追加しました', done: '完了しました ✓', restore: 'リストに戻しました', edit: '保存しました' }
+const TOAST_MSGS = { add: 'タスクを追加しました', done: '完了しました ✓', restore: 'リストに戻しました', edit: '保存しました', reconnect: '再接続が必要です。「クラウドに接続」をタップしてください。' }
 
 // ─── スケジュール（繰り返し）ヘルパー ────────────────────
 const WEEKDAY_NAMES = ['日', '月', '火', '水', '木', '金', '土']
@@ -1409,12 +1438,14 @@ export default function App() {
   const [spreadsheetUrl, setSpreadsheetUrl]       = useState(() => localStorage.getItem(_initKeys.spreadsheetUrl) ?? null)
   const [editingSpreadsheetUrl, setEditingSpreadsheetUrl] = useState('')
   const syncTimerRef = useRef(null)
+  const isSavingRef  = useRef(false)
 
   const handleLogin = useCallback((credential) => {
     try {
       const base64 = credential.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
       const payload = JSON.parse(atob(base64))
       const email = payload.email
+      migrateStorageKeys(email) // v1キー → v2キーへの自動マイグレーション
       const keys = getStorageKeys(email)
       let newTasks; try { newTasks = JSON.parse(localStorage.getItem(keys.tasks) ?? 'null') ?? [] } catch { newTasks = [] }
       let newDash; try { newDash = JSON.parse(localStorage.getItem(keys.dashboard) ?? 'null') ?? { routine: [], adhoc: [], schedule: [] } } catch { newDash = { routine: [], adhoc: [], schedule: [] } }
@@ -1546,6 +1577,7 @@ export default function App() {
           setAccessToken(null)
           sessionStorage.removeItem('gis-access-token')
           setSyncStatus('local')
+          setToast(TOAST_MSGS.reconnect)
         } else {
           setSyncStatus('error')
         }
@@ -1562,13 +1594,17 @@ export default function App() {
     setSyncStatus('saving')
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
     syncTimerRef.current = setTimeout(async () => {
+      if (isSavingRef.current) return // 保存中の重複実行をスキップ
+      const ssId = localStorage.getItem(storageKeys.ssId)
+      if (!ssId) { return } // ロード完了後に再トリガーされるため、エラーにしない
+      isSavingRef.current = true
       try {
-        const ssId = localStorage.getItem(storageKeys.ssId)
-        if (!ssId) { return } // ロード完了後に再トリガーされるため、エラーにしない
         await saveToSheets(accessToken, ssId, { tasks, dashboard, procedures })
         setSyncStatus('synced')
       } catch {
         setSyncStatus('error')
+      } finally {
+        isSavingRef.current = false
       }
     }, 1500)
   }, [tasks, dashboard, procedures, hasLoaded, userEmail, accessToken, storageKeys])
@@ -1648,7 +1684,15 @@ export default function App() {
     if (filter === 'all') return activeTasks.filter(t => t.status !== 'done')
     return activeTasks.filter(t => t.status === filter)
   }, [activeTasks, filter])
-  const todayDone      = useMemo(() => doneTasks.filter(t => t.completedAt && new Date(t.completedAt).toDateString() === new Date().toDateString()).length, [doneTasks])
+  const todayDone      = useMemo(() => {
+    const now = new Date()
+    const y = now.getFullYear(), mo = now.getMonth(), d = now.getDate()
+    return doneTasks.filter(t => {
+      if (!t.completedAt) return false
+      const dt = new Date(t.completedAt)
+      return dt.getFullYear() === y && dt.getMonth() === mo && dt.getDate() === d
+    }).length
+  }, [doneTasks])
 
   if (!userEmail) return <LoginScreen onLogin={handleLogin} />
 
