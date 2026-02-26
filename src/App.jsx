@@ -1530,7 +1530,7 @@ export default function App() {
     syncTimerRef.current = setTimeout(async () => {
       try {
         const ssId = localStorage.getItem(storageKeys.ssId)
-        if (!ssId) { setSyncStatus('error'); return }
+        if (!ssId) { return } // ロード完了後に再トリガーされるため、エラーにしない
         await saveToSheets(accessToken, ssId, { tasks, dashboard, procedures })
         setSyncStatus('synced')
       } catch {
