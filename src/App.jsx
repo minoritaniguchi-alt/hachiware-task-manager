@@ -97,7 +97,7 @@ async function migrateSheetNames(token, ssId) {
 }
 
 async function getOrCreateSpreadsheet(token, ssIdKey) {
-  const diag = { localId: null, driveStatus: null, driveError: null, files: [], selectedId: null, created: false }
+  const diag = { localId: null, driveStatus: null, driveError: null, driveApiDisabled: false, files: [], selectedId: null, created: false }
   let ssId = localStorage.getItem(ssIdKey)
   diag.localId = ssId
 
@@ -150,7 +150,11 @@ async function getOrCreateSpreadsheet(token, ssIdKey) {
         ssId = bestId
       }
     } else {
-      diag.driveError = await res.text().catch(() => `HTTP ${res.status}`)
+      const errText = await res.text().catch(() => '')
+      diag.driveError = errText || `HTTP ${res.status}`
+      if (errText.includes('SERVICE_DISABLED') || errText.includes('accessNotConfigured')) {
+        diag.driveApiDisabled = true
+      }
     }
   } catch (e) { diag.driveError = e.message }
 
@@ -280,7 +284,7 @@ const DASHBOARD_CATEGORIES = [
 const PROC_COLORS = ['#A8D8EC', '#F8C8D4', '#B8E8D0', '#F8D4B8', '#D4C8EC', '#FFD0E8']
 const PROC_EAR_POSITIONS = ['top-left', 'top-center', 'top-right']
 
-const TOAST_MSGS = { add: 'タスクを追加しました', done: '完了しました ✓', restore: 'リストに戻しました', edit: '保存しました', reconnect: '再接続が必要です。「クラウドに接続」をタップしてください。' }
+const TOAST_MSGS = { add: 'タスクを追加しました', done: '完了しました ✓', restore: 'リストに戻しました', edit: '保存しました', reconnect: '再接続が必要です。「クラウドに接続」をタップしてください。', driveDisabled: 'Google Drive API が無効です。Cloud Console で有効化してください。' }
 
 // ─── スケジュール（繰り返し）ヘルパー ────────────────────
 const WEEKDAY_NAMES = ['日', '月', '火', '水', '木', '金', '土']
@@ -1564,6 +1568,7 @@ export default function App() {
       try {
         const { ssId, diag } = await getOrCreateSpreadsheet(accessToken, storageKeys.ssId)
         setDiagInfo(diag)
+        if (diag.driveApiDisabled) setToast(TOAST_MSGS.driveDisabled)
         const ssUrl = `https://docs.google.com/spreadsheets/d/${ssId}`
         setSpreadsheetUrl(ssUrl)
         localStorage.setItem(storageKeys.spreadsheetUrl, ssUrl)
