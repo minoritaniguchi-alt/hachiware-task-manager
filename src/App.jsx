@@ -1,9 +1,18 @@
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useMemo, useCallback, Component } from 'react'
 import {
   Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2,
-  Clock, Search,
+  Clock, Search, GripVertical,
   Pencil, X, Check, Cloud, CloudOff, LogOut, Settings, ExternalLink
 } from 'lucide-react'
+import {
+  DndContext, PointerSensor, TouchSensor,
+  useSensor, useSensors, closestCenter,
+} from '@dnd-kit/core'
+import {
+  SortableContext, useSortable,
+  verticalListSortingStrategy, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import catLogo from './assets/cat_Image.png'
 import catBlack from './assets/cat_black.png'
 import catOrange from './assets/cat_orange.png'
@@ -567,12 +576,85 @@ function Toast({ msg, onDone }) {
   )
 }
 
+// ─── SortableDashItem ────────────────────────────────────
+function SortableDashItem({ item, catId, onEdit, onDelete, query, disabled }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: item.id, disabled })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    position: 'relative',
+    zIndex: isDragging ? 10 : undefined,
+  }
+  return (
+    <div ref={setNodeRef} style={style}
+      className="flex items-start gap-2 bg-gray-50 hover:bg-[#FAF7F2] rounded-xl px-3 py-2 text-sm text-gray-700 group transition-colors cursor-pointer"
+      onClick={() => onEdit(item, catId)}>
+      {!disabled && (
+        <button {...attributes} {...listeners}
+          className="touch-none cursor-grab active:cursor-grabbing p-0.5 text-gray-200 hover:text-gray-400 transition-colors flex-shrink-0 self-center"
+          tabIndex={-1} onClick={e => e.stopPropagation()}>
+          <GripVertical size={13} />
+        </button>
+      )}
+      <div className="flex-1 min-w-0">
+        <span className="text-sm text-gray-700 leading-snug"><Highlight text={item.text} query={query} /></span>
+        {getRecurrenceLabel(item.recurrence) && (
+          <p className="text-xs text-[#68B4C8] mt-0.5 font-medium">🔄 {getRecurrenceLabel(item.recurrence)}</p>
+        )}
+        {item.details && (
+          <p className="text-xs text-gray-500 mt-0.5 leading-snug whitespace-pre-line"><Highlight text={item.details} query={query} /></p>
+        )}
+        {item.links?.length > 0 && (
+          <div className="flex flex-col gap-0.5 mt-1">
+            {item.links.map(link => (
+              <a key={link.id} href={link.url} target="_blank" rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                className="inline-flex items-center gap-1 text-xs text-[#C4855A] hover:underline w-fit">
+                <LinkSvgIcon size={10} /><Highlight text={link.title || link.url} query={query} />
+              </a>
+            ))}
+          </div>
+        )}
+        {item.memo && (() => { const e = parseMemoEntries(item.memo)[0]; return e ? (
+          <p className="text-xs text-gray-400 mt-0.5 truncate"><Highlight text={e.text} query={query} /></p>
+        ) : null })()}
+      </div>
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
+        <button
+          onClick={e => { e.stopPropagation(); onEdit(item, catId) }}
+          className="p-1 text-gray-400 hover:text-[#68B4C8] rounded hover:bg-[#A0C8DC]/15 transition-colors"
+          title="編集">
+          <Pencil size={11} />
+        </button>
+        <button
+          onClick={e => { e.stopPropagation(); onDelete(catId, item.id) }}
+          className="p-1 text-gray-400 hover:text-red-400 rounded hover:bg-red-50 transition-colors"
+          title="削除">
+          <Trash2 size={12} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── DashboardCard ───────────────────────────────────────
-function DashboardCard({ category, items, onAdd, onDelete, onEdit, forceOpen = false, query = '' }) {
+function DashboardCard({ category, items, onAdd, onDelete, onEdit, onReorder, forceOpen = false, query = '' }) {
   const [open, setOpen] = useState(true)
   const isOpen = forceOpen || open
   const [input, setInput] = useState('')
   const [details, setDetails] = useState('')
+  const dashSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 5 } })
+  )
+  const handleDashDragEnd = useCallback(({ active, over }) => {
+    if (!over || active.id === over.id) return
+    const oldIdx = items.findIndex(i => i.id === active.id)
+    const newIdx = items.findIndex(i => i.id === over.id)
+    onReorder(category.id, arrayMove(items, oldIdx, newIdx))
+  }, [items, category.id, onReorder])
   const [links, setLinks] = useState([])
   const [recurrence, setRecurrence] = useState({ type: 'none' })
   const [formExpanded, setFormExpanded] = useState(false)
@@ -666,49 +748,14 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit, forceOpen = f
             )}
 
             {items.length === 0 && <p className="text-xs text-gray-400 text-center py-1">項目なし</p>}
-            {items.map(item => (
-              <div key={item.id}
-                className="flex items-start gap-2 bg-gray-50 hover:bg-[#FAF7F2] rounded-xl px-3 py-2 text-sm text-gray-700 group transition-colors cursor-pointer"
-                onClick={() => onEdit(item, category.id)}>
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm text-gray-700 leading-snug"><Highlight text={item.text} query={query} /></span>
-                  {getRecurrenceLabel(item.recurrence) && (
-                    <p className="text-xs text-[#68B4C8] mt-0.5 font-medium">🔄 {getRecurrenceLabel(item.recurrence)}</p>
-                  )}
-                  {item.details && (
-                    <p className="text-xs text-gray-500 mt-0.5 leading-snug whitespace-pre-line"><Highlight text={item.details} query={query} /></p>
-                  )}
-                  {item.links?.length > 0 && (
-                    <div className="flex flex-col gap-0.5 mt-1">
-                      {item.links.map(link => (
-                        <a key={link.id} href={link.url} target="_blank" rel="noopener noreferrer"
-                          onClick={e => e.stopPropagation()}
-                          className="inline-flex items-center gap-1 text-xs text-[#C4855A] hover:underline w-fit">
-                          <LinkSvgIcon size={10} /><Highlight text={link.title || link.url} query={query} />
-                        </a>
-                      ))}
-                    </div>
-                  )}
-                  {item.memo && (() => { const e = parseMemoEntries(item.memo)[0]; return e ? (
-                    <p className="text-xs text-gray-400 mt-0.5 truncate"><Highlight text={e.text} query={query} /></p>
-                  ) : null })()}
-                </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
-                  <button
-                    onClick={e => { e.stopPropagation(); onEdit(item, category.id) }}
-                    className="p-1 text-gray-400 hover:text-[#68B4C8] rounded hover:bg-[#A0C8DC]/15 transition-colors"
-                    title="編集">
-                    <Pencil size={11} />
-                  </button>
-                  <button
-                    onClick={e => { e.stopPropagation(); onDelete(category.id, item.id) }}
-                    className="p-1 text-gray-400 hover:text-red-400 rounded hover:bg-red-50 transition-colors"
-                    title="削除">
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              </div>
-            ))}
+            <DndContext sensors={dashSensors} collisionDetection={closestCenter} onDragEnd={handleDashDragEnd}>
+              <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                {items.map(item => (
+                  <SortableDashItem key={item.id} item={item} catId={category.id}
+                    onEdit={onEdit} onDelete={onDelete} query={query} disabled={!!query} />
+                ))}
+              </SortableContext>
+            </DndContext>
           </div>
         )}
       </div>
@@ -727,12 +774,20 @@ function LinkSvgIcon({ size = 12, className = '' }) {
 }
 
 // ─── TaskRow ─────────────────────────────────────────────
-function TaskRow({ task, onStatusChange, onDelete, onEdit, query = '' }) {
+function TaskRow({ task, onStatusChange, onDelete, onEdit, query = '', dragHandleProps = null }) {
   const isDone = task.status === 'done'
   const links = task.links || []
 
   return (
     <div className="flex items-start gap-3 px-4 py-3.5 transition-all duration-200 hover:bg-[#FAF7F2]/70 group">
+      {dragHandleProps && (
+        <button
+          {...dragHandleProps}
+          className="touch-none cursor-grab active:cursor-grabbing p-0.5 mt-1 text-gray-200 hover:text-gray-400 transition-colors flex-shrink-0 self-start"
+          tabIndex={-1}>
+          <GripVertical size={14} />
+        </button>
+      )}
       <div className="flex-1 min-w-0 flex flex-col gap-1.5">
         {/* タイトル */}
         <span className="text-sm font-medium text-gray-800 leading-snug">
@@ -786,6 +841,31 @@ function TaskRow({ task, onStatusChange, onDelete, onEdit, query = '' }) {
           <Trash2 size={13} />
         </button>
       </div>
+    </div>
+  )
+}
+
+// ─── SortableTaskRow ─────────────────────────────────────
+function SortableTaskRow({ task, onStatusChange, onDelete, onEdit, query, disabled }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: task.id, disabled })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    position: 'relative',
+    zIndex: isDragging ? 10 : undefined,
+  }
+  return (
+    <div ref={setNodeRef} style={style}>
+      <TaskRow
+        task={task}
+        onStatusChange={onStatusChange}
+        onDelete={onDelete}
+        onEdit={onEdit}
+        query={query}
+        dragHandleProps={disabled ? null : { ...attributes, ...listeners }}
+      />
     </div>
   )
 }
@@ -1229,8 +1309,57 @@ function ProcedureItemEditModal({ item, onSave, onClose }) {
   )
 }
 
+// ─── SortableProcItem ─────────────────────────────────────
+function SortableProcItem({ item, catId, onEdit, onDelete, query, disabled }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: item.id, disabled })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    position: 'relative',
+    zIndex: isDragging ? 10 : undefined,
+  }
+  return (
+    <div ref={setNodeRef} style={style}
+      className="flex items-start gap-2 bg-gray-50 hover:bg-[#FAF7F2] rounded-xl px-3 py-2.5 group transition-colors">
+      {!disabled && (
+        <button {...attributes} {...listeners}
+          className="touch-none cursor-grab active:cursor-grabbing p-0.5 text-gray-200 hover:text-gray-400 transition-colors flex-shrink-0 self-center"
+          tabIndex={-1}>
+          <GripVertical size={13} />
+        </button>
+      )}
+      <LinkSvgIcon size={12} className="text-[#B89060] mt-0.5 flex-shrink-0" />
+      <div className="flex-1 min-w-0">
+        {item.url ? (
+          <a href={item.url} target="_blank" rel="noopener noreferrer"
+            className="text-sm text-[#8B6A3E] hover:underline font-medium leading-snug">
+            <Highlight text={item.title || item.url} query={query} />
+          </a>
+        ) : (
+          <span className="text-sm text-gray-700 font-medium leading-snug"><Highlight text={item.title} query={query} /></span>
+        )}
+        {item.note && (
+          <p className="text-xs text-gray-500 mt-0.5 leading-snug whitespace-pre-line"><Highlight text={item.note} query={query} /></p>
+        )}
+      </div>
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
+        <button onClick={() => onEdit(item, catId)}
+          className="p-1 text-gray-400 hover:text-[#B89060] rounded hover:bg-[#E8C8A0]/20 transition-colors" title="編集">
+          <Pencil size={11} />
+        </button>
+        <button onClick={() => onDelete(catId, item.id)}
+          className="p-1 text-gray-400 hover:text-red-400 rounded hover:bg-red-50 transition-colors" title="削除">
+          <Trash2 size={12} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── ProcedureCategory ────────────────────────────────────
-function ProcedureCategory({ category, onAddItem, onDeleteItem, onEditItem, onDelete, onRename, colorIndex, forceOpen = false, query = '' }) {
+function ProcedureCategory({ category, onAddItem, onDeleteItem, onEditItem, onDelete, onRename, onReorderItems, colorIndex, forceOpen = false, query = '' }) {
   const color   = PROC_COLORS[colorIndex % PROC_COLORS.length]
   const earPos  = PROC_EAR_POSITIONS[colorIndex % PROC_EAR_POSITIONS.length]
   const [open, setOpen]             = useState(true)
@@ -1244,6 +1373,17 @@ function ProcedureCategory({ category, onAddItem, onDeleteItem, onEditItem, onDe
 
   // カテゴリ名が外部で変わった時に追従
   useEffect(() => { setNameInput(category.name) }, [category.name])
+
+  const procSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 5 } })
+  )
+  const handleProcDragEnd = useCallback(({ active, over }) => {
+    if (!over || active.id === over.id) return
+    const oldIdx = category.items.findIndex(i => i.id === active.id)
+    const newIdx = category.items.findIndex(i => i.id === over.id)
+    onReorderItems(category.id, arrayMove(category.items, oldIdx, newIdx))
+  }, [category.items, category.id, onReorderItems])
 
   const handleAdd = () => {
     if (!newUrl.trim() && !newTitle.trim()) return
@@ -1301,34 +1441,14 @@ function ProcedureCategory({ category, onAddItem, onDeleteItem, onEditItem, onDe
             {category.items.length === 0 && !addExpanded && (
               <p className="text-xs text-gray-400 text-center py-1">リンクなし</p>
             )}
-            {category.items.map(item => (
-              <div key={item.id} className="flex items-start gap-2 bg-gray-50 hover:bg-[#FAF7F2] rounded-xl px-3 py-2.5 group transition-colors">
-                <LinkSvgIcon size={12} className="text-[#B89060] mt-0.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  {item.url ? (
-                    <a href={item.url} target="_blank" rel="noopener noreferrer"
-                      className="text-sm text-[#8B6A3E] hover:underline font-medium leading-snug">
-                      <Highlight text={item.title || item.url} query={query} />
-                    </a>
-                  ) : (
-                    <span className="text-sm text-gray-700 font-medium leading-snug"><Highlight text={item.title} query={query} /></span>
-                  )}
-                  {item.note && (
-                    <p className="text-xs text-gray-500 mt-0.5 leading-snug whitespace-pre-line"><Highlight text={item.note} query={query} /></p>
-                  )}
-                </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
-                  <button onClick={() => onEditItem(item, category.id)}
-                    className="p-1 text-gray-400 hover:text-[#B89060] rounded hover:bg-[#E8C8A0]/20 transition-colors" title="編集">
-                    <Pencil size={11} />
-                  </button>
-                  <button onClick={() => onDeleteItem(category.id, item.id)}
-                    className="p-1 text-gray-400 hover:text-red-400 rounded hover:bg-red-50 transition-colors" title="削除">
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              </div>
-            ))}
+            <DndContext sensors={procSensors} collisionDetection={closestCenter} onDragEnd={handleProcDragEnd}>
+              <SortableContext items={category.items.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                {category.items.map(item => (
+                  <SortableProcItem key={item.id} item={item} catId={category.id}
+                    onEdit={onEditItem} onDelete={onDeleteItem} query={query} disabled={!!query} />
+                ))}
+              </SortableContext>
+            </DndContext>
 
             {/* 追加フォーム */}
             {addExpanded ? (
@@ -1965,6 +2085,10 @@ export default function App() {
     setProcedures(prev => ({ categories: prev.categories.map(c => c.id !== catId ? c : { ...c, items: [...c.items, { id: crypto.randomUUID(), ...fields }] }) }))
   const deleteProcItem = (catId, itemId) =>
     setProcedures(prev => ({ categories: prev.categories.map(c => c.id !== catId ? c : { ...c, items: c.items.filter(i => i.id !== itemId) }) }))
+  const reorderDashItems = useCallback((catId, newItems) =>
+    setDashboard(prev => ({ ...prev, [catId]: newItems })), [])
+  const reorderProcItems = useCallback((catId, newItems) =>
+    setProcedures(prev => ({ categories: prev.categories.map(c => c.id === catId ? { ...c, items: newItems } : c) })), [])
   const updateProcItem = (catId, itemId, fields) => {
     setProcedures(prev => ({ categories: prev.categories.map(c => c.id !== catId ? c : { ...c, items: c.items.map(i => i.id !== itemId ? i : { ...i, ...fields }) }) }))
     setToast(TOAST_MSGS.edit)
@@ -1975,6 +2099,20 @@ export default function App() {
     if (filter === 'all') return tasks.filter(t => t.status !== 'done')
     return tasks.filter(t => t.status === filter)
   }, [tasks, filter])
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 5 } })
+  )
+
+  const handleDragEnd = useCallback(({ active, over }) => {
+    if (!over || active.id === over.id) return
+    setTasks(prev => {
+      const oldIdx = prev.findIndex(t => t.id === active.id)
+      const newIdx = prev.findIndex(t => t.id === over.id)
+      return arrayMove(prev, oldIdx, newIdx)
+    })
+  }, [])
 
   const q = searchQuery.trim().toLowerCase()
   const searchedTasks = useMemo(() => {
@@ -2161,6 +2299,7 @@ export default function App() {
                     onAddItem={addProcItem} onDeleteItem={deleteProcItem}
                     onEditItem={(item, catId) => setEditingProcItem({ item, catId })}
                     onDelete={deleteProcCategory} onRename={renameProcCategory}
+                    onReorderItems={reorderProcItems}
                     colorIndex={i} />
                 ))
               )}
@@ -2230,7 +2369,8 @@ export default function App() {
                 <DashboardCard key={cat.id} category={cat} items={catItems}
                   forceOpen={!!q} query={q}
                   onAdd={addDashboardItem} onDelete={deleteDashboardItem}
-                  onEdit={(item, catId) => setEditingDashItem({ item, catId })} />
+                  onEdit={(item, catId) => setEditingDashItem({ item, catId })}
+                  onReorder={reorderDashItems} />
               )
             })}
           </div>
@@ -2281,13 +2421,17 @@ export default function App() {
 
                   {/* タスクリスト */}
                   {searchedTasks.length === 0 ? <EmptyState /> : (
-                    <div className="flex flex-col divide-y divide-[#F5F0EB]">
-                      {searchedTasks.map(task => (
-                        <TaskRow key={task.id} task={task}
-                          onStatusChange={changeStatus} onDelete={deleteTask}
-                          onEdit={setEditingTask} query={q} />
-                      ))}
-                    </div>
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                      <SortableContext items={searchedTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                        <div className="flex flex-col divide-y divide-[#F5F0EB]">
+                          {searchedTasks.map(task => (
+                            <SortableTaskRow key={task.id} task={task}
+                              onStatusChange={changeStatus} onDelete={deleteTask}
+                              onEdit={setEditingTask} query={q} disabled={!!q} />
+                          ))}
+                        </div>
+                      </SortableContext>
+                    </DndContext>
                   )}
                 </div>
               )}
