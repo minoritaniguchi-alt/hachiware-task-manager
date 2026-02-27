@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useMemo, useCallback, Component } from 'react'
 import {
   Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2,
   Clock,
@@ -18,7 +18,7 @@ const normalizeUrl = (url) => {
     if (!['http:', 'https:'].includes(parsed.protocol)) return ''
     return parsed.href
   } catch {
-    return `https://${u}`
+    return ''
   }
 }
 
@@ -266,8 +266,64 @@ const STATUS_ORDER = ['doing', 'review', 'pause', 'waiting', 'done']
 const DASHBOARD_CATEGORIES = [
   { id: 'routine',  label: 'ルーチン業務', emoji: '🍜', borderColor: 'border-[#A0C8DC]', bgColor: 'from-[#A0C8DC]/10 to-[#A0C8DC]/5', color: '#A0C8DC', earPosition: 'top-left' },
   { id: 'adhoc',   label: '臨時対応',     emoji: '📷', borderColor: 'border-[#F8C0D8]', bgColor: 'from-[#F8C0D8]/10 to-[#F8C0D8]/5', color: '#F8C0D8', earPosition: 'top-center' },
-  { id: 'schedule', label: '予定',         emoji: '🎸', borderColor: 'border-[#C4E0B8]', bgColor: 'from-[#C4E0B8]/20 to-[#C4E0B8]/5', color: '#C4E0B8', earPosition: 'top-right' },
+  { id: 'schedule', label: '予定',         emoji: '🎸', borderColor: 'border-[#F0E080]', bgColor: 'from-[#F0E080]/20 to-[#F0E080]/5', color: '#F0E080', earPosition: 'top-right' },
 ]
+
+// 星柄パターン（SVG data URI・散りばめ）
+function starPatternUrl(hexColor, opacity = 0.13) {
+  function pts(cx, cy, r, r2) {
+    const p = []
+    for (let i = 0; i < 5; i++) {
+      const a1 = (i * 72 - 90) * Math.PI / 180
+      const a2 = (i * 72 - 54) * Math.PI / 180
+      p.push(`${(cx + r * Math.cos(a1)).toFixed(1)},${(cy + r * Math.sin(a1)).toFixed(1)}`)
+      p.push(`${(cx + r2 * Math.cos(a2)).toFixed(1)},${(cy + r2 * Math.sin(a2)).toFixed(1)}`)
+    }
+    return p.join(' ')
+  }
+  const stars = [
+    [20, 16, 8, 3.2], [82, 44, 6, 2.5], [140, 18, 7, 2.8],
+    [52, 105, 7, 2.8], [115, 82, 8, 3.2], [30, 148, 6, 2.4],
+    [148, 130, 7, 2.8], [88, 155, 5, 2.0],
+  ]
+  const polys = stars.map(([x, y, r, r2]) =>
+    `<polygon points='${pts(x, y, r, r2)}' fill='${hexColor}' fill-opacity='${opacity}' stroke='${hexColor}' stroke-opacity='${opacity}' stroke-width='4.5' stroke-linejoin='round'/>`
+  ).join('')
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='170' height='170'>${polys}</svg>`
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
+}
+
+// ちいかわキャラクターイメージ（カテゴリ別）
+const CHIIKAWA_CARD_STYLES = {
+  routine: {
+    // ハチワレ：ブルー・きちんと感
+    bg:        `${starPatternUrl('#6496E6')} repeat, linear-gradient(135deg, #F2F7FF 55%, #C8DCFF 100%)`,
+    shadow:    '0 2px 10px rgba(90,130,210,0.18), 0 1px 2px rgba(0,0,0,0.04)',
+    border:    '1.5px solid rgba(100,150,230,0.35)',
+    iconBg:    'rgba(100,150,230,0.18)',
+    chipColor: '#5080C0',
+    imgFilter: 'sepia(1) hue-rotate(190deg) saturate(2.5) brightness(1.1)',
+  },
+  adhoc: {
+    // うさぎ：ホットピンク・元気
+    bg:        `${starPatternUrl('#E66496')} repeat, linear-gradient(135deg, #FFF5F8 55%, #FFD0E8 100%)`,
+    shadow:    '0 2px 10px rgba(230,100,150,0.18), 0 1px 2px rgba(0,0,0,0.04)',
+    border:    '1.5px solid rgba(240,130,170,0.38)',
+    iconBg:    'rgba(248,150,185,0.25)',
+    chipColor: '#C8508A',
+    imgFilter: 'sepia(1) hue-rotate(310deg) saturate(2.5) brightness(1.1)',
+  },
+  schedule: {
+    // うさぎ：クリーム・黄色・ほんわか
+    bg:        `${starPatternUrl('#C8A820')} repeat, linear-gradient(135deg, #FFFDF0 55%, #FFF8B0 100%)`,
+    shadow:    '0 2px 10px rgba(200,170,30,0.18), 0 1px 2px rgba(0,0,0,0.04)',
+    border:    '1.5px solid rgba(210,190,50,0.42)',
+    iconBg:    'rgba(240,220,80,0.28)',
+    chipColor: '#A08010',
+    imgFilter: 'sepia(1) hue-rotate(10deg) saturate(2.5) brightness(1.1)',
+  },
+}
+
 
 const PROC_COLORS = ['#A8D8EC', '#F8C8D4', '#B8E8D0', '#F8D4B8', '#D4C8EC', '#FFD0E8']
 const PROC_EAR_POSITIONS = ['top-left', 'top-center', 'top-right']
@@ -293,6 +349,23 @@ function getRecurrencePresets(date) {
     { type: 'weekdays', label: '毎週 平日（月〜金）' },
     { type: 'custom',   label: 'カスタム' },
   ]
+}
+
+function isItemToday(recurrence, today) {
+  if (!recurrence || recurrence.type === 'none') return false
+  const wd  = today.getDay()
+  const wom = Math.ceil(today.getDate() / 7)
+  const m   = today.getMonth() + 1
+  const d   = today.getDate()
+  switch (recurrence.type) {
+    case 'daily':    return true
+    case 'weekly':   return recurrence.weekday === wd
+    case 'monthly':  return recurrence.weekOfMonth === wom && recurrence.weekday === wd
+    case 'yearly':   return recurrence.month === m && recurrence.day === d
+    case 'weekdays': return wd >= 1 && wd <= 5
+    case 'custom':   return Array.isArray(recurrence.customDays) && recurrence.customDays.includes(wd)
+    default:         return false
+  }
 }
 
 function getRecurrenceLabel(rec) {
@@ -907,6 +980,31 @@ const LinkInputRow = forwardRef(function LinkInputRow({ onAdd }, ref) {
 })
 
 // ─── DashboardItemEditModal ───────────────────────────────
+function TimeInputModal({ item, onSave, onClose }) {
+  const [time, setTime] = useState(item.time || '')
+  useEscapeKey(onClose)
+  return (
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/25 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="relative bg-white rounded-3xl shadow-2xl p-6 w-72 flex flex-col gap-4">
+        <h3 className="text-sm font-semibold text-gray-700 truncate">🕐 {item.text}</h3>
+        <input type="time" value={time} onChange={e => setTime(e.target.value)}
+          className="w-full text-base px-4 py-2.5 rounded-xl border-2 border-[#A0C8DC]/30 focus:outline-none focus:ring-2 focus:ring-[#A0C8DC]/40 text-gray-700 text-center" />
+        <div className="flex gap-2">
+          <button onClick={onClose}
+            className="flex-1 px-4 py-2 rounded-xl text-sm font-medium text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors">
+            キャンセル
+          </button>
+          <button onClick={() => { onSave(time); onClose() }}
+            className="flex-1 px-4 py-2 rounded-xl text-sm font-medium bg-[#A0C8DC] text-white hover:bg-[#68B4C8] transition-colors active:scale-95">
+            保存
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function DashboardItemEditModal({ item, onSave, onClose }) {
   const [title, setTitle]         = useState(item.text || '')
   const [details, setDetails]     = useState(item.details || '')
@@ -1441,6 +1539,29 @@ function LoginScreen({ onLogin }) {
   )
 }
 
+// ─── Error Boundary ──────────────────────────────────────
+export class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null } }
+  static getDerivedStateFromError(error) { return { hasError: true, error } }
+  componentDidCatch(error, info) { console.error('App error:', error, info) }
+  render() {
+    if (this.state.hasError) return (
+      <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center p-6">
+        <div className="bg-white rounded-3xl shadow-lg p-8 max-w-sm w-full text-center flex flex-col gap-4">
+          <span className="text-4xl">🐱</span>
+          <p className="text-gray-700 font-medium">エラーが発生しました</p>
+          <p className="text-xs text-gray-400">ページをリロードしてください</p>
+          <button onClick={() => window.location.reload()}
+            className="px-4 py-2.5 rounded-xl bg-[#A0C8DC] text-white text-sm font-medium hover:bg-[#68B4C8] transition-colors">
+            リロード
+          </button>
+        </div>
+      </div>
+    )
+    return this.props.children
+  }
+}
+
 // ─── メインアプリ ──────────────────────────────────────────
 export default function App() {
   const [idToken, setIdToken]           = useState(() => sessionStorage.getItem('gis-id-token') ?? null)
@@ -1469,6 +1590,7 @@ export default function App() {
   const [filter, setFilter]               = useState('all')
   const [editingTask, setEditingTask]             = useState(null)
   const [editingDashItem, setEditingDashItem]     = useState(null) // { item, catId }
+  const [timeItem, setTimeItem]                   = useState(null) // { item, catId }
   const [editingProcItem, setEditingProcItem]     = useState(null) // { item, catId }
   const [syncStatus, setSyncStatus]               = useState('loading')
   const [hasLoaded, setHasLoaded]                 = useState(false)
@@ -1529,7 +1651,15 @@ export default function App() {
       // 既に同意済みの場合はサイレント取得（初回はポップアップが必要なためボタンで対応）
       tokenClientRef.current.requestAccessToken({ prompt: '' })
     }
-    if (window.google?.accounts?.oauth2) { init() } else { window.addEventListener('load', init) }
+    if (window.google?.accounts?.oauth2) {
+      init()
+    } else if (document.readyState !== 'complete') {
+      window.addEventListener('load', init)
+    } else {
+      // ページロード済みだが Google ライブラリ未到達 → 短いポーリングで再試行
+      const timer = setInterval(() => { if (window.google?.accounts?.oauth2) { init(); clearInterval(timer) } }, 500)
+      setTimeout(() => clearInterval(timer), 10000) // 10秒でタイムアウト
+    }
     return () => window.removeEventListener('load', init)
   }, [userEmail])
 
@@ -1691,11 +1821,20 @@ export default function App() {
     setDashboard(prev => ({ ...prev, [catId]: [...(prev[catId] || []), { id: crypto.randomUUID(), text, details, memo: '', links, recurrence }] }))
   const deleteDashboardItem = (catId, itemId) =>
     setDashboard(prev => ({ ...prev, [catId]: (prev[catId] || []).filter(i => i.id !== itemId) }))
+  const saveItemTime = (catId, itemId, time) => {
+    setDashboard(prev => ({
+      ...prev,
+      [catId]: (prev[catId] || []).map(item =>
+        item.id !== itemId ? item : { ...item, time }
+      ),
+    }))
+  }
+
   const updateDashboardItem = (catId, itemId, fields) => {
     setDashboard(prev => ({
       ...prev,
       [catId]: (prev[catId] || []).map(item =>
-        item.id !== itemId ? item : { ...item, text: fields.title, details: fields.details, memo: fields.memo, links: fields.links, recurrence: fields.recurrence }
+        item.id !== itemId ? item : { ...item, text: fields.title, details: fields.details, memo: fields.memo, links: fields.links, recurrence: fields.recurrence, time: item.time }
       ),
     }))
     setToast(TOAST_MSGS.edit)
@@ -1717,7 +1856,7 @@ export default function App() {
     setToast(TOAST_MSGS.edit)
   }
 
-  const activeTasks    = useMemo(() => tasks, [tasks])
+  const activeTasks    = tasks
   const doneTasks      = useMemo(() => tasks.filter(t => t.status === 'done'), [tasks])
   const filteredActive = useMemo(() => {
     if (filter === 'all') return activeTasks.filter(t => t.status !== 'done')
@@ -1732,6 +1871,17 @@ export default function App() {
       return dt.getFullYear() === y && dt.getMonth() === mo && dt.getDate() === d
     }).length
   }, [doneTasks])
+
+  const todayDashItems = useMemo(() => {
+    const today = new Date()
+    const result = []
+    DASHBOARD_CATEGORIES.forEach(cat => {
+      ;(dashboard[cat.id] || []).forEach(item => {
+        if (isItemToday(item.recurrence, today)) result.push({ ...item, cat })
+      })
+    })
+    return result
+  }, [dashboard])
 
   if (!userEmail) return <LoginScreen onLogin={handleLogin} />
 
@@ -1828,6 +1978,56 @@ export default function App() {
       {/* ダッシュボードタブ */}
       {activeTab === 'dashboard' && (
         <main className="max-w-4xl mx-auto px-6 py-7">
+          {todayDashItems.length > 0 && (
+            <div className="mb-5 animate-[fade-in_0.3s_ease-out]">
+              {/* ヘッダー：ぽってり丸ラベル */}
+              <div className="flex items-center gap-2 mb-2.5 px-1">
+                <span className="inline-flex items-center gap-1.5 bg-[#FFE8C8] text-[#C07040] text-xs font-bold px-3.5 py-1.5 rounded-full"
+                      style={{ boxShadow: '0 1px 4px rgba(192,112,64,0.15)' }}>
+                  ☀️ 今日の業務
+                </span>
+                <span className="text-xs text-gray-400">
+                  {(() => { const t = new Date(); return `${t.getMonth()+1}月${t.getDate()}日（${WEEKDAY_NAMES[t.getDay()]}）` })()}
+                </span>
+              </div>
+              {/* アイテム一覧 */}
+              <div className="flex flex-col gap-2">
+                {todayDashItems.map(({ cat, ...item }) => {
+                  const cs = CHIIKAWA_CARD_STYLES[cat.id] || {}
+                  return (
+                  <div key={item.id}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-3xl transition-all"
+                    style={{ background: cs.bg, boxShadow: cs.shadow, border: cs.border }}>
+                    {/* 左：編集モーダルを開くエリア */}
+                    <button onClick={() => setEditingDashItem({ item, catId: cat.id })}
+                      className="flex items-center gap-3 flex-1 min-w-0 text-left active:scale-[0.98] transition-transform">
+                      <span className="w-10 h-10 flex items-center justify-center rounded-full flex-shrink-0"
+                            style={{ background: cs.iconBg }}>
+                        <img src={catLogo} alt="" className="w-7 h-7 object-contain"
+                             style={{ filter: cs.imgFilter }} />
+                      </span>
+                      <span className="text-sm text-gray-700 flex-1 truncate leading-snug">{item.text}</span>
+                    </button>
+                    {/* 右：スケジュール＋時間ボタン */}
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {getRecurrenceLabel(item.recurrence) && (
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-white/90"
+                              style={{ color: cs.chipColor }}>
+                          {getRecurrenceLabel(item.recurrence)}
+                        </span>
+                      )}
+                      <button onClick={() => setTimeItem({ item, catId: cat.id })}
+                        className="flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-white/90 transition-colors active:scale-[0.98]"
+                        style={{ color: item.time ? '#555' : '#bbb' }}>
+                        <Clock size={11} />
+                        {item.time && <span>{item.time}</span>}
+                      </button>
+                    </div>
+                  </div>
+                )})}
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-4 animate-[fade-in_0.3s_ease-out]">
             {DASHBOARD_CATEGORIES.map(cat => (
               <DashboardCard key={cat.id} category={cat} items={dashboard[cat.id] || []}
@@ -1914,6 +2114,16 @@ export default function App() {
           item={editingDashItem.item}
           onSave={fields => updateDashboardItem(editingDashItem.catId, editingDashItem.item.id, fields)}
           onClose={() => setEditingDashItem(null)}
+        />
+      )}
+
+      {/* 時間設定モーダル */}
+      {timeItem && (
+        <TimeInputModal
+          key={timeItem.item.id}
+          item={timeItem.item}
+          onSave={time => saveItemTime(timeItem.catId, timeItem.item.id, time)}
+          onClose={() => setTimeItem(null)}
         />
       )}
 
