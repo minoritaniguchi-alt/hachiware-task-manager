@@ -808,6 +808,14 @@ function TimeSelect({ value, onChange }) {
 // ─── メモ履歴ヘルパー ──────────────────────────────────────
 function parseMemoEntries(memo) {
   if (!memo) return []
+  // 新形式: エントリ間を \n---\n で区切る
+  if (memo.includes('\n---\n')) {
+    return memo.split('\n---\n').filter(e => e.trim()).map(block => {
+      const m = block.match(/^\[(\d{4}\/\d{2}\/\d{2})\] ([\s\S]+)/)
+      return m ? { date: m[1], text: m[2] } : { date: null, text: block }
+    })
+  }
+  // 旧形式: \n 区切り（後方互換）
   return memo.split('\n').filter(line => line.trim()).map(line => {
     const m = line.match(/^\[(\d{4}\/\d{2}\/\d{2})\] (.+)/)
     return m ? { date: m[1], text: m[2] } : { date: null, text: line }
@@ -818,8 +826,8 @@ function buildMemoWithEntry(existing, newText) {
   if (!newText.trim()) return existing
   const d = new Date()
   const ds = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`
-  const entry = `[${ds}] ${newText.trim().replace(/\n+/g, ' ')}`
-  return [entry, existing].filter(Boolean).join('\n')
+  const entry = `[${ds}] ${newText.trim()}`
+  return [entry, existing].filter(Boolean).join('\n---\n')
 }
 
 // ─── RecurrenceSelector ───────────────────────────────────
@@ -1106,11 +1114,11 @@ function DashboardItemEditModal({ item, onSave, onClose }) {
                 {parseMemoEntries(memo).map((entry, i) => (
                   <div key={i} className="text-xs bg-[#FAF7F2] rounded-xl px-3 py-2 flex gap-2 items-start group">
                     {entry.date && <span className="text-[#A0C8DC] font-medium flex-shrink-0">{entry.date}</span>}
-                    <span className="text-gray-600 leading-relaxed flex-1">{entry.text}</span>
+                    <span className="text-gray-600 leading-relaxed flex-1 whitespace-pre-wrap">{entry.text}</span>
                     <button type="button" onClick={() => {
                       const entries = parseMemoEntries(memo)
                       entries.splice(i, 1)
-                      setMemo(entries.map(e => e.date ? `[${e.date}] ${e.text}` : e.text).join('\n'))
+                      setMemo(entries.map(e => e.date ? `[${e.date}] ${e.text}` : e.text).join('\n---\n'))
                     }} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all flex-shrink-0 ml-1">
                       <X size={12} />
                     </button>
@@ -1505,11 +1513,11 @@ function TaskEditModal({ task, onSave, onClose }) {
                 {parseMemoEntries(memo).map((entry, i) => (
                   <div key={i} className="text-xs bg-[#FAF7F2] rounded-xl px-3 py-2 flex gap-2 items-start group">
                     {entry.date && <span className="text-[#A0C8DC] font-medium flex-shrink-0">{entry.date}</span>}
-                    <span className="text-gray-600 leading-relaxed flex-1">{entry.text}</span>
+                    <span className="text-gray-600 leading-relaxed flex-1 whitespace-pre-wrap">{entry.text}</span>
                     <button type="button" onClick={() => {
                       const entries = parseMemoEntries(memo)
                       entries.splice(i, 1)
-                      setMemo(entries.map(e => e.date ? `[${e.date}] ${e.text}` : e.text).join('\n'))
+                      setMemo(entries.map(e => e.date ? `[${e.date}] ${e.text}` : e.text).join('\n---\n'))
                     }} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all flex-shrink-0 ml-1">
                       <X size={12} />
                     </button>
