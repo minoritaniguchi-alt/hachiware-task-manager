@@ -344,8 +344,9 @@ function getRecurrencePresets(date) {
     { type: 'none',     label: '繰り返さない' },
     { type: 'daily',    label: '毎日' },
     { type: 'weekly',   label: `毎週 ${WEEKDAY_NAMES[wd]}曜`, weekday: wd },
-    { type: 'monthly',  label: `毎月 ${WEEK_OF_MONTH_LABEL[wom]}${WEEKDAY_NAMES[wd]}曜`, weekOfMonth: wom, weekday: wd },
-    { type: 'yearly',   label: `毎年 ${m}月${day}日`, month: m, day },
+    { type: 'monthly',      label: `毎月 ${WEEK_OF_MONTH_LABEL[wom]}${WEEKDAY_NAMES[wd]}曜`, weekOfMonth: wom, weekday: wd },
+    { type: 'monthly_last', label: '毎月 最終◯曜日' },
+    { type: 'yearly',       label: `毎年 ${m}月${day}日`, month: m, day },
     { type: 'weekdays', label: '毎週 平日（月〜金）' },
     { type: 'custom',   label: 'カスタム' },
   ]
@@ -361,6 +362,10 @@ function isItemToday(recurrence, today) {
     case 'daily':    return true
     case 'weekly':   return recurrence.weekday === wd
     case 'monthly':  return recurrence.weekOfMonth === wom && recurrence.weekday === wd
+    case 'monthly_last': {
+      const nextWeek = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7)
+      return today.getDay() === recurrence.weekday && nextWeek.getMonth() !== today.getMonth()
+    }
     case 'yearly':   return recurrence.month === m && recurrence.day === d
     case 'weekdays': return wd >= 1 && wd <= 5
     case 'custom':   return Array.isArray(recurrence.customDays) && recurrence.customDays.includes(wd)
@@ -374,7 +379,8 @@ function getRecurrenceLabel(rec) {
   switch (rec.type) {
     case 'daily':    base = '毎日'; break
     case 'weekly':   base = `毎週 ${WEEKDAY_NAMES[rec.weekday]}曜`; break
-    case 'monthly':  base = `毎月 ${WEEK_OF_MONTH_LABEL[rec.weekOfMonth]}${WEEKDAY_NAMES[rec.weekday]}曜`; break
+    case 'monthly':      base = `毎月 ${WEEK_OF_MONTH_LABEL[rec.weekOfMonth]}${WEEKDAY_NAMES[rec.weekday]}曜`; break
+    case 'monthly_last': base = `毎月 最終${WEEKDAY_NAMES[rec.weekday]}曜`; break
     case 'yearly':   base = `毎年 ${rec.month}月${rec.day}日`; break
     case 'weekdays': base = '毎週 平日（月〜金）'; break
     case 'custom': {
@@ -813,6 +819,8 @@ function RecurrenceSelector({ value, onChange }) {
             onClick={() => {
               if (opt.type === 'custom') {
                 onChange({ type: 'custom', customDays: value?.customDays || [], startTime: value?.startTime || '', endTime: value?.endTime || '' })
+              } else if (opt.type === 'monthly_last') {
+                onChange({ type: 'monthly_last', weekday: value?.weekday ?? new Date().getDay(), startTime: value?.startTime || '', endTime: value?.endTime || '' })
               } else {
                 onChange({ ...opt, startTime: value?.startTime || '', endTime: value?.endTime || '' })
               }
@@ -827,6 +835,23 @@ function RecurrenceSelector({ value, onChange }) {
           </button>
         ))}
       </div>
+
+      {type === 'monthly_last' && (
+        <div className="flex gap-1.5 pt-1 flex-wrap">
+          {WEEKDAY_NAMES.map((name, i) => (
+            <button key={i} type="button"
+              onClick={() => onChange({ ...value, weekday: i })}
+              className={`w-8 h-8 text-xs rounded-full border font-medium transition-all ${
+                value?.weekday === i
+                  ? 'bg-[#A0C8DC] text-white border-[#68B4C8]'
+                  : 'bg-white text-gray-400 border-gray-200 hover:border-[#A0C8DC]'
+              }`}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {type === 'custom' && (
         <div className="flex gap-1.5 pt-1 flex-wrap">
