@@ -746,12 +746,13 @@ function TaskRow({ task, onStatusChange, onDelete, onEdit }) {
           </div>
         )}
 
-        {/* 進捗メモ（スプレッドシートの備考列相当） */}
-        {task.memo && (
-          <div className="mt-1 px-2.5 py-1.5 bg-[#FBF5E6] rounded-lg border-l-2 border-[#D4B86B]">
-            <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line">{task.memo}</p>
+        {/* 進捗メモ（最新エントリのみ表示） */}
+        {task.memo && (() => { const e = parseMemoEntries(task.memo)[0]; return e ? (
+          <div className="mt-1 px-2.5 py-1.5 bg-[#FBF5E6] rounded-lg border-l-2 border-[#D4B86B] flex gap-2">
+            {e.date && <span className="text-[#A0C8DC] text-xs font-medium flex-shrink-0">{e.date}</span>}
+            <p className="text-xs text-gray-600 leading-relaxed truncate">{e.text}</p>
           </div>
-        )}
+        ) : null })()}
       </div>
 
       {/* 操作ボタン */}
@@ -802,6 +803,23 @@ function TimeSelect({ value, onChange }) {
       </select>
     </div>
   )
+}
+
+// ─── メモ履歴ヘルパー ──────────────────────────────────────
+function parseMemoEntries(memo) {
+  if (!memo) return []
+  return memo.split('\n').filter(line => line.trim()).map(line => {
+    const m = line.match(/^\[(\d{4}\/\d{2}\/\d{2})\] (.+)/)
+    return m ? { date: m[1], text: m[2] } : { date: null, text: line }
+  })
+}
+
+function buildMemoWithEntry(existing, newText) {
+  if (!newText.trim()) return existing
+  const d = new Date()
+  const ds = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`
+  const lines = newText.split('\n').filter(l => l.trim()).map(l => `[${ds}] ${l.trim()}`)
+  return [lines.join('\n'), existing].filter(Boolean).join('\n')
 }
 
 // ─── RecurrenceSelector ───────────────────────────────────
@@ -1031,9 +1049,11 @@ function TimeInputModal({ item, onSave, onClose }) {
 }
 
 function DashboardItemEditModal({ item, onSave, onClose }) {
-  const [title, setTitle]         = useState(item.text || '')
-  const [details, setDetails]     = useState(item.details || '')
-  const [links, setLinks]         = useState(item.links || [])
+  const [title, setTitle]           = useState(item.text || '')
+  const [details, setDetails]       = useState(item.details || '')
+  const [memo, setMemo]             = useState(item.memo || '')
+  const [newEntry, setNewEntry]     = useState('')
+  const [links, setLinks]           = useState(item.links || [])
   const [recurrence, setRecurrence] = useState(item.recurrence || { type: 'none' })
   const linkInputRef = useRef(null)
   useEscapeKey(onClose)
@@ -1042,7 +1062,7 @@ function DashboardItemEditModal({ item, onSave, onClose }) {
     if (!title.trim()) return
     const pendingLink = linkInputRef.current?.flush()
     const allLinks = pendingLink ? [...links, pendingLink] : links
-    onSave({ title: title.trim(), details: details.trim(), memo: item.memo || '', links: allLinks, recurrence })
+    onSave({ title: title.trim(), details: details.trim(), memo: buildMemoWithEntry(memo, newEntry.trim()), links: allLinks, recurrence })
     onClose()
   }
 
@@ -1078,6 +1098,28 @@ function DashboardItemEditModal({ item, onSave, onClose }) {
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">リンク</label>
             <EditableLinkList links={links} onChange={setLinks} />
             <LinkInputRow ref={linkInputRef} onAdd={link => setLinks(prev => [...prev, link])} />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">進捗メモ</label>
+            {parseMemoEntries(memo).length > 0 && (
+              <div className="mb-2 max-h-36 overflow-y-auto flex flex-col gap-1.5">
+                {parseMemoEntries(memo).map((entry, i) => (
+                  <div key={i} className="text-xs bg-[#FAF7F2] rounded-xl px-3 py-2 flex gap-2 items-start group">
+                    {entry.date && <span className="text-[#A0C8DC] font-medium flex-shrink-0">{entry.date}</span>}
+                    <span className="text-gray-600 leading-relaxed flex-1">{entry.text}</span>
+                    <button type="button" onClick={() => {
+                      const entries = parseMemoEntries(memo)
+                      entries.splice(i, 1)
+                      setMemo(entries.map(e => e.date ? `[${e.date}] ${e.text}` : e.text).join('\n'))
+                    }} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all flex-shrink-0 ml-1">
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <textarea value={newEntry} onChange={e => setNewEntry(e.target.value)} rows={2} placeholder="追記する..."
+              className="w-full text-sm px-4 py-2.5 rounded-xl border border-[#A0C8DC]/20 bg-white focus:outline-none focus:ring-2 focus:ring-[#A0C8DC]/30 placeholder-gray-400 resize-none" />
           </div>
         </div>
 
@@ -1307,7 +1349,7 @@ function TaskInputForm({ onAdd }) {
     if (!v) return
     const pendingLink = linkInputRef.current?.flush()
     const allLinks = pendingLink ? [...links, pendingLink] : links
-    onAdd({ title: v, details: details.trim(), memo: memo.trim(), status, dueDate, links: allLinks })
+    onAdd({ title: v, details: details.trim(), memo: buildMemoWithEntry('', memo.trim()), status, dueDate, links: allLinks })
     setTitle(''); setDetails(''); setMemo(''); setStatus('doing')
     setDueDate(''); setLinks([]); setExpanded(false)
     suppressExpand.current = true
@@ -1404,6 +1446,7 @@ function TaskEditModal({ task, onSave, onClose }) {
   const [title, setTitle]       = useState(task.title || '')
   const [details, setDetails]   = useState(task.details || '')
   const [memo, setMemo]         = useState(task.memo || '')
+  const [newEntry, setNewEntry] = useState('')
   const [status, setStatus]     = useState(task.status || 'doing')
   const [dueDate, setDueDate]   = useState(task.dueDate || '')
   const [links, setLinks]       = useState(task.links || [])
@@ -1414,7 +1457,7 @@ function TaskEditModal({ task, onSave, onClose }) {
     if (!title.trim()) return
     const pendingLink = linkInputRef.current?.flush()
     const allLinks = pendingLink ? [...links, pendingLink] : links
-    onSave(task.id, { title: title.trim(), details: details.trim(), memo: memo.trim(), status, dueDate, links: allLinks })
+    onSave(task.id, { title: title.trim(), details: details.trim(), memo: buildMemoWithEntry(memo, newEntry.trim()), status, dueDate, links: allLinks })
     onClose()
   }
 
@@ -1457,7 +1500,24 @@ function TaskEditModal({ task, onSave, onClose }) {
           {/* 進捗メモ */}
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">進捗メモ</label>
-            <textarea value={memo} onChange={e => setMemo(e.target.value)} rows={3} placeholder="備考・進捗状況"
+            {parseMemoEntries(memo).length > 0 && (
+              <div className="mb-2 max-h-40 overflow-y-auto flex flex-col gap-1.5">
+                {parseMemoEntries(memo).map((entry, i) => (
+                  <div key={i} className="text-xs bg-[#FAF7F2] rounded-xl px-3 py-2 flex gap-2 items-start group">
+                    {entry.date && <span className="text-[#A0C8DC] font-medium flex-shrink-0">{entry.date}</span>}
+                    <span className="text-gray-600 leading-relaxed flex-1">{entry.text}</span>
+                    <button type="button" onClick={() => {
+                      const entries = parseMemoEntries(memo)
+                      entries.splice(i, 1)
+                      setMemo(entries.map(e => e.date ? `[${e.date}] ${e.text}` : e.text).join('\n'))
+                    }} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all flex-shrink-0 ml-1">
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <textarea value={newEntry} onChange={e => setNewEntry(e.target.value)} rows={2} placeholder="追記する..."
               className="w-full text-sm px-4 py-2.5 rounded-xl border border-[#A0C8DC]/20 bg-white focus:outline-none focus:ring-2 focus:ring-[#A0C8DC]/30 placeholder-gray-400 resize-none" />
           </div>
 
