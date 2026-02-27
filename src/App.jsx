@@ -419,6 +419,25 @@ function useEscapeKey(onClose) {
   }, [])
 }
 
+// ─── 検索ハイライト ────────────────────────────────────────
+function Highlight({ text, query }) {
+  if (!query || !text) return <>{text}</>
+  const parts = []
+  const lower = text.toLowerCase()
+  const q = query.toLowerCase()
+  let last = 0, idx
+  while ((idx = lower.indexOf(q, last)) !== -1) {
+    if (idx > last) parts.push({ t: text.slice(last, idx), m: false })
+    parts.push({ t: text.slice(idx, idx + q.length), m: true })
+    last = idx + q.length
+  }
+  if (last < text.length) parts.push({ t: text.slice(last), m: false })
+  return <>{parts.map((p, i) => p.m
+    ? <mark key={i} className="bg-yellow-200 text-inherit rounded-sm not-italic">{p.t}</mark>
+    : <span key={i}>{p.t}</span>
+  )}</>
+}
+
 // ─── 猫耳 × 2 ────────────────────────────────────────────
 // 低めの高さ + 幅広のQベジエで「ふっくら丸みのある猫耳」を表現
 function CatEarsDecor({ color, position }) {
@@ -549,7 +568,7 @@ function Toast({ msg, onDone }) {
 }
 
 // ─── DashboardCard ───────────────────────────────────────
-function DashboardCard({ category, items, onAdd, onDelete, onEdit, forceOpen = false }) {
+function DashboardCard({ category, items, onAdd, onDelete, onEdit, forceOpen = false, query = '' }) {
   const [open, setOpen] = useState(true)
   const isOpen = forceOpen || open
   const [input, setInput] = useState('')
@@ -652,7 +671,7 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit, forceOpen = f
                 className="flex items-start gap-2 bg-gray-50 hover:bg-[#FAF7F2] rounded-xl px-3 py-2 text-sm text-gray-700 group transition-colors cursor-pointer"
                 onClick={() => onEdit(item, category.id)}>
                 <div className="flex-1 min-w-0">
-                  <span className="text-sm text-gray-700 leading-snug">{item.text}</span>
+                  <span className="text-sm text-gray-700 leading-snug"><Highlight text={item.text} query={query} /></span>
                   {getRecurrenceLabel(item.recurrence) && (
                     <p className="text-xs text-[#68B4C8] mt-0.5 font-medium">🔄 {getRecurrenceLabel(item.recurrence)}</p>
                   )}
@@ -708,7 +727,7 @@ function LinkSvgIcon({ size = 12, className = '' }) {
 }
 
 // ─── TaskRow ─────────────────────────────────────────────
-function TaskRow({ task, onStatusChange, onDelete, onEdit }) {
+function TaskRow({ task, onStatusChange, onDelete, onEdit, query = '' }) {
   const isDone = task.status === 'done'
   const links = task.links || []
 
@@ -717,7 +736,7 @@ function TaskRow({ task, onStatusChange, onDelete, onEdit }) {
       <div className="flex-1 min-w-0 flex flex-col gap-1.5">
         {/* タイトル */}
         <span className="text-sm font-medium text-gray-800 leading-snug">
-          {task.title}
+          <Highlight text={task.title} query={query} />
         </span>
 
         {/* 詳細テキスト */}
@@ -1211,7 +1230,7 @@ function ProcedureItemEditModal({ item, onSave, onClose }) {
 }
 
 // ─── ProcedureCategory ────────────────────────────────────
-function ProcedureCategory({ category, onAddItem, onDeleteItem, onEditItem, onDelete, onRename, colorIndex, forceOpen = false }) {
+function ProcedureCategory({ category, onAddItem, onDeleteItem, onEditItem, onDelete, onRename, colorIndex, forceOpen = false, query = '' }) {
   const color   = PROC_COLORS[colorIndex % PROC_COLORS.length]
   const earPos  = PROC_EAR_POSITIONS[colorIndex % PROC_EAR_POSITIONS.length]
   const [open, setOpen]             = useState(true)
@@ -1289,10 +1308,10 @@ function ProcedureCategory({ category, onAddItem, onDeleteItem, onEditItem, onDe
                   {item.url ? (
                     <a href={item.url} target="_blank" rel="noopener noreferrer"
                       className="text-sm text-[#8B6A3E] hover:underline font-medium leading-snug">
-                      {item.title || item.url}
+                      <Highlight text={item.title || item.url} query={query} />
                     </a>
                   ) : (
-                    <span className="text-sm text-gray-700 font-medium leading-snug">{item.title}</span>
+                    <span className="text-sm text-gray-700 font-medium leading-snug"><Highlight text={item.title} query={query} /></span>
                   )}
                   {item.note && (
                     <p className="text-xs text-gray-500 mt-0.5 leading-snug whitespace-pre-line">{item.note}</p>
@@ -2130,7 +2149,7 @@ export default function App() {
               ) : (
                 searchedProcedures.categories.map((cat, i) => (
                   <ProcedureCategory key={cat.id} category={cat}
-                    forceOpen={!!q}
+                    forceOpen={!!q} query={q}
                     onAddItem={addProcItem} onDeleteItem={deleteProcItem}
                     onEditItem={(item, catId) => setEditingProcItem({ item, catId })}
                     onDelete={deleteProcCategory} onRename={renameProcCategory}
@@ -2173,7 +2192,7 @@ export default function App() {
                         <img src={catLogo} alt="" className="w-7 h-7 object-contain"
                              style={{ filter: cs.imgFilter }} />
                       </span>
-                      <span className="text-sm text-gray-700 flex-1 truncate leading-snug">{item.text}</span>
+                      <span className="text-sm text-gray-700 flex-1 truncate leading-snug"><Highlight text={item.text} query={q} /></span>
                     </button>
                     {/* 右：スケジュール＋時間ボタン */}
                     <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -2201,7 +2220,7 @@ export default function App() {
               if (q && catItems.length === 0) return null
               return (
                 <DashboardCard key={cat.id} category={cat} items={catItems}
-                  forceOpen={!!q}
+                  forceOpen={!!q} query={q}
                   onAdd={addDashboardItem} onDelete={deleteDashboardItem}
                   onEdit={(item, catId) => setEditingDashItem({ item, catId })} />
               )
@@ -2258,7 +2277,7 @@ export default function App() {
                       {searchedTasks.map(task => (
                         <TaskRow key={task.id} task={task}
                           onStatusChange={changeStatus} onDelete={deleteTask}
-                          onEdit={setEditingTask} />
+                          onEdit={setEditingTask} query={q} />
                       ))}
                     </div>
                   )}
