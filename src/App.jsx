@@ -818,8 +818,8 @@ function buildMemoWithEntry(existing, newText) {
   if (!newText.trim()) return existing
   const d = new Date()
   const ds = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`
-  const lines = newText.split('\n').filter(l => l.trim()).map(l => `[${ds}] ${l.trim()}`)
-  return [lines.join('\n'), existing].filter(Boolean).join('\n')
+  const entry = `[${ds}] ${newText.trim().replace(/\n+/g, ' ')}`
+  return [entry, existing].filter(Boolean).join('\n')
 }
 
 // ─── RecurrenceSelector ───────────────────────────────────
