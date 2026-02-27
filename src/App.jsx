@@ -345,7 +345,7 @@ function getRecurrencePresets(date) {
     { type: 'daily',    label: '毎日' },
     { type: 'weekly',   label: `毎週 ${WEEKDAY_NAMES[wd]}曜`, weekday: wd },
     { type: 'monthly',      label: `毎月 ${WEEK_OF_MONTH_LABEL[wom]}${WEEKDAY_NAMES[wd]}曜`, weekOfMonth: wom, weekday: wd },
-    { type: 'monthly_last', label: '毎月 最終◯曜日' },
+    { type: 'monthly_last', label: `毎月 最終${WEEKDAY_NAMES[wd]}曜`, weekday: wd },
     { type: 'yearly',       label: `毎年 ${m}月${day}日`, month: m, day },
     { type: 'weekdays', label: '毎週 平日（月〜金）' },
     { type: 'custom',   label: 'カスタム' },
