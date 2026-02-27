@@ -302,7 +302,7 @@ const CHIIKAWA_CARD_STYLES = {
     border:    '1.5px solid rgba(100,150,230,0.35)',
     iconBg:    'rgba(100,150,230,0.18)',
     chipColor: '#5080C0',
-    imgFilter: 'sepia(1) hue-rotate(190deg) saturate(2.5) brightness(1.1)',
+    imgFilter: 'sepia(1) hue-rotate(190deg) saturate(7.0) brightness(1.1)',
   },
   adhoc: {
     // うさぎ：ホットピンク・元気
@@ -311,7 +311,7 @@ const CHIIKAWA_CARD_STYLES = {
     border:    '1.5px solid rgba(240,130,170,0.38)',
     iconBg:    'rgba(248,150,185,0.25)',
     chipColor: '#C8508A',
-    imgFilter: 'sepia(1) hue-rotate(310deg) saturate(2.5) brightness(1.1)',
+    imgFilter: 'sepia(1) hue-rotate(310deg) saturate(3.5) brightness(1.1)',
   },
   schedule: {
     // うさぎ：クリーム・黄色・ほんわか
