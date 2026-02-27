@@ -649,12 +649,15 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit, onReorder, fo
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 5 } })
   )
+  const dashItemsRef = useRef(items)
+  dashItemsRef.current = items
   const handleDashDragEnd = useCallback(({ active, over }) => {
     if (!over || active.id === over.id) return
-    const oldIdx = items.findIndex(i => i.id === active.id)
-    const newIdx = items.findIndex(i => i.id === over.id)
-    onReorder(category.id, arrayMove(items, oldIdx, newIdx))
-  }, [items, category.id, onReorder])
+    const cur = dashItemsRef.current
+    const oldIdx = cur.findIndex(i => i.id === active.id)
+    const newIdx = cur.findIndex(i => i.id === over.id)
+    onReorder(category.id, arrayMove(cur, oldIdx, newIdx))
+  }, [category.id, onReorder])
   const [links, setLinks] = useState([])
   const [recurrence, setRecurrence] = useState({ type: 'none' })
   const [formExpanded, setFormExpanded] = useState(false)
@@ -1378,12 +1381,15 @@ function ProcedureCategory({ category, onAddItem, onDeleteItem, onEditItem, onDe
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 5 } })
   )
+  const procItemsRef = useRef(category.items)
+  procItemsRef.current = category.items
   const handleProcDragEnd = useCallback(({ active, over }) => {
     if (!over || active.id === over.id) return
-    const oldIdx = category.items.findIndex(i => i.id === active.id)
-    const newIdx = category.items.findIndex(i => i.id === over.id)
-    onReorderItems(category.id, arrayMove(category.items, oldIdx, newIdx))
-  }, [category.items, category.id, onReorderItems])
+    const cur = procItemsRef.current
+    const oldIdx = cur.findIndex(i => i.id === active.id)
+    const newIdx = cur.findIndex(i => i.id === over.id)
+    onReorderItems(category.id, arrayMove(cur, oldIdx, newIdx))
+  }, [category.id, onReorderItems])
 
   const handleAdd = () => {
     if (!newUrl.trim() && !newTitle.trim()) return
@@ -1803,7 +1809,6 @@ export class ErrorBoundary extends Component {
 
 // ─── メインアプリ ──────────────────────────────────────────
 export default function App() {
-  const [idToken, setIdToken]           = useState(() => sessionStorage.getItem('gis-id-token') ?? null)
   const [userEmail, setUserEmail]       = useState(() => sessionStorage.getItem('gis-user-email') ?? null)
   const [accessToken, setAccessToken]   = useState(() => sessionStorage.getItem('gis-access-token') ?? null)
 
@@ -1855,7 +1860,6 @@ export default function App() {
       setDashboard(newDash)
       setProcedures(newProc)
       setHasLoaded(false)
-      setIdToken(credential)
       setUserEmail(email)
       sessionStorage.setItem('gis-id-token', credential)
       sessionStorage.setItem('gis-user-email', email)
@@ -1864,7 +1868,6 @@ export default function App() {
 
   const handleLogout = useCallback(() => {
     if (window.google) window.google.accounts.id.disableAutoSelect()
-    setIdToken(null)
     setUserEmail(null)
     setAccessToken(null)
     setHasLoaded(false)
