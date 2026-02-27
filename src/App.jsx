@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useMemo, useCallback, Component } from 'react'
 import {
   Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2,
-  Clock,
+  Clock, Search,
   Pencil, X, Check, Cloud, CloudOff, LogOut, Settings, ExternalLink
 } from 'lucide-react'
 import catLogo from './assets/cat_Image.png'
@@ -549,8 +549,9 @@ function Toast({ msg, onDone }) {
 }
 
 // ─── DashboardCard ───────────────────────────────────────
-function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
+function DashboardCard({ category, items, onAdd, onDelete, onEdit, forceOpen = false }) {
   const [open, setOpen] = useState(true)
+  const isOpen = forceOpen || open
   const [input, setInput] = useState('')
   const [details, setDetails] = useState('')
   const [links, setLinks] = useState([])
@@ -582,14 +583,14 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit }) {
                 {items.length}件
               </span>
             </div>
-            {open
+            {isOpen
               ? <ChevronUp   size={15} className="text-gray-500 flex-shrink-0" />
               : <ChevronDown size={15} className="text-gray-500 flex-shrink-0" />
             }
           </div>
         </button>
 
-        {open && (
+        {isOpen && (
           <div className="bg-white px-4 pt-3 pb-4 flex flex-col gap-2">
 
             {/* 業務名 */}
@@ -1210,10 +1211,11 @@ function ProcedureItemEditModal({ item, onSave, onClose }) {
 }
 
 // ─── ProcedureCategory ────────────────────────────────────
-function ProcedureCategory({ category, onAddItem, onDeleteItem, onEditItem, onDelete, onRename, colorIndex }) {
+function ProcedureCategory({ category, onAddItem, onDeleteItem, onEditItem, onDelete, onRename, colorIndex, forceOpen = false }) {
   const color   = PROC_COLORS[colorIndex % PROC_COLORS.length]
   const earPos  = PROC_EAR_POSITIONS[colorIndex % PROC_EAR_POSITIONS.length]
   const [open, setOpen]             = useState(true)
+  const isOpen = forceOpen || open
   const [addExpanded, setAddExpanded] = useState(false)
   const [newTitle, setNewTitle]     = useState('')
   const [newUrl, setNewUrl]         = useState('')
@@ -1270,12 +1272,12 @@ function ProcedureCategory({ category, onAddItem, onDeleteItem, onEditItem, onDe
               <Trash2 size={11} />
             </button>
             <button onClick={() => setOpen(v => !v)} className="p-1.5 text-gray-600 rounded hover:bg-white/30 transition-colors">
-              {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+              {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
             </button>
           </div>
         </div>
 
-        {open && (
+        {isOpen && (
           <div className="bg-white px-4 pt-3 pb-4 flex flex-col gap-2">
             {category.items.length === 0 && !addExpanded && (
               <p className="text-xs text-gray-400 text-center py-1">リンクなし</p>
@@ -1682,6 +1684,8 @@ export default function App() {
   })
   const [activeTab, setActiveTab]         = useState('dashboard')
 
+  const [searchQuery, setSearchQuery]     = useState('')
+  const [showSearch, setShowSearch]       = useState(false)
 
   const [tasksOpen, setTasksOpen]         = useState(true)
   const [toast, setToast]                 = useState(null)
@@ -1952,6 +1956,42 @@ export default function App() {
     if (filter === 'all') return tasks.filter(t => t.status !== 'done')
     return tasks.filter(t => t.status === filter)
   }, [tasks, filter])
+
+  const q = searchQuery.trim().toLowerCase()
+  const searchedTasks = useMemo(() => {
+    if (!q) return filteredActive
+    return filteredActive.filter(t =>
+      t.title.toLowerCase().includes(q) || (t.details || '').toLowerCase().includes(q)
+    )
+  }, [filteredActive, q])
+
+  const searchedDashboard = useMemo(() => {
+    if (!q) return dashboard
+    const result = {}
+    DASHBOARD_CATEGORIES.forEach(cat => {
+      result[cat.id] = (dashboard[cat.id] || []).filter(item =>
+        item.text.toLowerCase().includes(q) || (item.details || '').toLowerCase().includes(q)
+      )
+    })
+    return result
+  }, [dashboard, q])
+
+  const searchedProcedures = useMemo(() => {
+    if (!q) return procedures
+    return {
+      categories: procedures.categories
+        .map(cat => ({
+          ...cat,
+          items: cat.items.filter(item =>
+            (item.title || '').toLowerCase().includes(q) ||
+            (item.url   || '').toLowerCase().includes(q) ||
+            (item.note  || '').toLowerCase().includes(q)
+          ),
+        }))
+        .filter(cat => cat.items.length > 0),
+    }
+  }, [procedures, q])
+
   const todayDone      = useMemo(() => {
     const now = new Date()
     const y = now.getFullYear(), mo = now.getMonth(), d = now.getDate()
@@ -2001,6 +2041,13 @@ export default function App() {
             </div>
             <SyncIndicator status={syncStatus} onConnect={handleConnectCloud} />
             <button
+              onClick={() => { setShowSearch(v => !v); if (showSearch) setSearchQuery('') }}
+              className={`p-1.5 rounded-lg transition-colors ${showSearch ? 'bg-[#A0C8DC]/20 text-[#68B4C8]' : 'hover:bg-gray-100 text-gray-400 hover:text-gray-600'}`}
+              title="検索"
+            >
+              <Search size={15} />
+            </button>
+            <button
               onClick={() => setShowSettings(true)}
               className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
               title="設定"
@@ -2009,6 +2056,27 @@ export default function App() {
             </button>
           </div>
         </div>
+        {/* 検索バー */}
+        {showSearch && (
+          <div className="max-w-4xl mx-auto px-6 py-2 border-b border-[#A0C8DC]/20 animate-[fade-in_0.15s_ease-out]">
+            <div className="flex items-center gap-2 bg-[#FAF7F2] rounded-2xl px-3 py-2">
+              <Search size={13} className="text-[#A0C8DC] flex-shrink-0" />
+              <input
+                autoFocus
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="タスク・業務を検索..."
+                className="flex-1 text-sm bg-transparent outline-none text-gray-700 placeholder-gray-400"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="text-gray-300 hover:text-gray-500 transition-colors">
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         {/* タブナビゲーション */}
         <div className="max-w-4xl mx-auto px-6 flex border-b border-[#A0C8DC]/25">
           <button onClick={() => setActiveTab('dashboard')}
@@ -2051,9 +2119,15 @@ export default function App() {
                   <p className="text-4xl">📋</p>
                   <p className="text-sm text-gray-400 font-medium">カテゴリを追加してリンクを整理しましょう</p>
                 </div>
+              ) : searchedProcedures.categories.length === 0 ? (
+                <div className="text-center py-14 flex flex-col items-center gap-3">
+                  <p className="text-4xl">🔍</p>
+                  <p className="text-sm text-gray-400 font-medium">「{searchQuery}」に一致するリンクはありません</p>
+                </div>
               ) : (
-                procedures.categories.map((cat, i) => (
+                searchedProcedures.categories.map((cat, i) => (
                   <ProcedureCategory key={cat.id} category={cat}
+                    forceOpen={!!q}
                     onAddItem={addProcItem} onDeleteItem={deleteProcItem}
                     onEditItem={(item, catId) => setEditingProcItem({ item, catId })}
                     onDelete={deleteProcCategory} onRename={renameProcCategory}
@@ -2119,11 +2193,16 @@ export default function App() {
             </div>
           )}
           <div className="grid grid-cols-1 gap-4 animate-[fade-in_0.3s_ease-out]">
-            {DASHBOARD_CATEGORIES.map(cat => (
-              <DashboardCard key={cat.id} category={cat} items={dashboard[cat.id] || []}
-                onAdd={addDashboardItem} onDelete={deleteDashboardItem}
-                onEdit={(item, catId) => setEditingDashItem({ item, catId })} />
-            ))}
+            {DASHBOARD_CATEGORIES.map(cat => {
+              const catItems = searchedDashboard[cat.id] || []
+              if (q && catItems.length === 0) return null
+              return (
+                <DashboardCard key={cat.id} category={cat} items={catItems}
+                  forceOpen={!!q}
+                  onAdd={addDashboardItem} onDelete={deleteDashboardItem}
+                  onEdit={(item, catId) => setEditingDashItem({ item, catId })} />
+              )
+            })}
           </div>
         </main>
       )}
@@ -2146,7 +2225,7 @@ export default function App() {
                   <div className="flex items-center gap-2 font-semibold text-gray-700 text-sm">
                     ✔ タスク
                     <span className="text-xs font-normal bg-white/70 px-2 py-0.5 rounded-full text-gray-500">
-                      {filteredActive.length}件
+                      {searchedTasks.length}件
                     </span>
                   </div>
                   {tasksOpen ? <ChevronUp size={15} className="text-gray-500 flex-shrink-0" /> : <ChevronDown size={15} className="text-gray-500 flex-shrink-0" />}
@@ -2171,9 +2250,9 @@ export default function App() {
                   </div>
 
                   {/* タスクリスト */}
-                  {filteredActive.length === 0 ? <EmptyState /> : (
+                  {searchedTasks.length === 0 ? <EmptyState /> : (
                     <div className="flex flex-col divide-y divide-[#F5F0EB]">
-                      {filteredActive.map(task => (
+                      {searchedTasks.map(task => (
                         <TaskRow key={task.id} task={task}
                           onStatusChange={changeStatus} onDelete={deleteTask}
                           onEdit={setEditingTask} />
