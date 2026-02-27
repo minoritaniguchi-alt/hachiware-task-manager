@@ -808,18 +808,23 @@ function TimeSelect({ value, onChange }) {
 // ─── メモ履歴ヘルパー ──────────────────────────────────────
 function parseMemoEntries(memo) {
   if (!memo) return []
-  // 新形式: エントリ間を \n---\n で区切る
+  // 新形式: \n---\n 区切り
   if (memo.includes('\n---\n')) {
     return memo.split('\n---\n').filter(e => e.trim()).map(block => {
       const m = block.match(/^\[(\d{4}\/\d{2}\/\d{2})\] ([\s\S]+)/)
       return m ? { date: m[1], text: m[2] } : { date: null, text: block }
     })
   }
-  // 旧形式: \n 区切り（後方互換）
-  return memo.split('\n').filter(line => line.trim()).map(line => {
-    const m = line.match(/^\[(\d{4}\/\d{2}\/\d{2})\] (.+)/)
-    return m ? { date: m[1], text: m[2] } : { date: null, text: line }
-  })
+  // 旧形式の判定: 改行の直後に [date] が来るパターン
+  if (/\n\[\d{4}\/\d{2}\/\d{2}\]/.test(memo)) {
+    return memo.split('\n').filter(line => line.trim()).map(line => {
+      const m = line.match(/^\[(\d{4}\/\d{2}\/\d{2})\] (.+)/)
+      return m ? { date: m[1], text: m[2] } : { date: null, text: line }
+    })
+  }
+  // 単一エントリ（改行含む可能性あり）
+  const m = memo.match(/^\[(\d{4}\/\d{2}\/\d{2})\] ([\s\S]+)/)
+  return [m ? { date: m[1], text: m[2] } : { date: null, text: memo }]
 }
 
 function buildMemoWithEntry(existing, newText) {
