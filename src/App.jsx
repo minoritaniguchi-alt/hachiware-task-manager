@@ -741,7 +741,7 @@ function TaskRow({ task, onStatusChange, onDelete, onEdit, query = '' }) {
 
         {/* 詳細テキスト */}
         {task.details && (
-          <p className="text-xs text-gray-500 leading-relaxed whitespace-pre-line">{task.details}</p>
+          <p className="text-xs text-gray-500 leading-relaxed whitespace-pre-line"><Highlight text={task.details} query={query} /></p>
         )}
 
         {/* バッジ行 */}
@@ -772,7 +772,7 @@ function TaskRow({ task, onStatusChange, onDelete, onEdit, query = '' }) {
         {task.memo && (() => { const e = parseMemoEntries(task.memo)[0]; return e ? (
           <div className="mt-1 px-2.5 py-1.5 bg-[#FBF5E6] rounded-lg border-l-2 border-[#D4B86B] flex gap-2">
             {e.date && <span className="text-[#A0C8DC] text-xs font-medium flex-shrink-0">{e.date}</span>}
-            <p className="text-xs text-gray-600 leading-relaxed truncate">{e.text}</p>
+            <p className="text-xs text-gray-600 leading-relaxed truncate"><Highlight text={e.text} query={query} /></p>
           </div>
         ) : null })()}
       </div>
@@ -1980,7 +1980,9 @@ export default function App() {
   const searchedTasks = useMemo(() => {
     if (!q) return filteredActive
     return filteredActive.filter(t =>
-      t.title.toLowerCase().includes(q) || (t.details || '').toLowerCase().includes(q)
+      t.title.toLowerCase().includes(q) ||
+      (t.details || '').toLowerCase().includes(q) ||
+      (t.memo || '').toLowerCase().includes(q)
     )
   }, [filteredActive, q])
 
