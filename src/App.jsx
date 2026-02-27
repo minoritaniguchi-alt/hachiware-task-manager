@@ -676,7 +676,7 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit, forceOpen = f
                     <p className="text-xs text-[#68B4C8] mt-0.5 font-medium">🔄 {getRecurrenceLabel(item.recurrence)}</p>
                   )}
                   {item.details && (
-                    <p className="text-xs text-gray-500 mt-0.5 leading-snug whitespace-pre-line">{item.details}</p>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-snug whitespace-pre-line"><Highlight text={item.details} query={query} /></p>
                   )}
                   {item.links?.length > 0 && (
                     <div className="flex flex-col gap-0.5 mt-1">
@@ -684,14 +684,14 @@ function DashboardCard({ category, items, onAdd, onDelete, onEdit, forceOpen = f
                         <a key={link.id} href={link.url} target="_blank" rel="noopener noreferrer"
                           onClick={e => e.stopPropagation()}
                           className="inline-flex items-center gap-1 text-xs text-[#C4855A] hover:underline w-fit">
-                          <LinkSvgIcon size={10} />{link.title || link.url}
+                          <LinkSvgIcon size={10} /><Highlight text={link.title || link.url} query={query} />
                         </a>
                       ))}
                     </div>
                   )}
-                  {item.memo && (
-                    <p className="text-xs text-gray-400 mt-0.5 truncate">{item.memo}</p>
-                  )}
+                  {item.memo && (() => { const e = parseMemoEntries(item.memo)[0]; return e ? (
+                    <p className="text-xs text-gray-400 mt-0.5 truncate"><Highlight text={e.text} query={query} /></p>
+                  ) : null })()}
                 </div>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
                   <button
@@ -1314,7 +1314,7 @@ function ProcedureCategory({ category, onAddItem, onDeleteItem, onEditItem, onDe
                     <span className="text-sm text-gray-700 font-medium leading-snug"><Highlight text={item.title} query={query} /></span>
                   )}
                   {item.note && (
-                    <p className="text-xs text-gray-500 mt-0.5 leading-snug whitespace-pre-line">{item.note}</p>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-snug whitespace-pre-line"><Highlight text={item.note} query={query} /></p>
                   )}
                 </div>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
@@ -1991,7 +1991,10 @@ export default function App() {
     const result = {}
     DASHBOARD_CATEGORIES.forEach(cat => {
       result[cat.id] = (dashboard[cat.id] || []).filter(item =>
-        item.text.toLowerCase().includes(q) || (item.details || '').toLowerCase().includes(q)
+        item.text.toLowerCase().includes(q) ||
+        (item.details || '').toLowerCase().includes(q) ||
+        (item.memo || '').toLowerCase().includes(q) ||
+        (item.links || []).some(l => (l.title || l.url || '').toLowerCase().includes(q))
       )
     })
     return result
@@ -2033,7 +2036,10 @@ export default function App() {
     })
     if (!q) return result
     return result.filter(item =>
-      item.text.toLowerCase().includes(q) || (item.details || '').toLowerCase().includes(q)
+      item.text.toLowerCase().includes(q) ||
+      (item.details || '').toLowerCase().includes(q) ||
+      (item.memo || '').toLowerCase().includes(q) ||
+      (item.links || []).some(l => (l.title || l.url || '').toLowerCase().includes(q))
     )
   }, [dashboard, q])
 
