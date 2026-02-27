@@ -410,11 +410,13 @@ function getRecurrenceLabel(rec) {
 
 // ─── カスタムフック ──────────────────────────────────────
 function useEscapeKey(onClose) {
+  const ref = useRef(onClose)
+  ref.current = onClose
   useEffect(() => {
-    const h = (e) => { if (e.key === 'Escape') onClose() }
+    const h = (e) => { if (e.key === 'Escape') ref.current() }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
-  }, [onClose])
+  }, [])
 }
 
 // ─── 猫耳 × 2 ────────────────────────────────────────────
@@ -835,6 +837,12 @@ function buildMemoWithEntry(existing, newText) {
   return [entry, existing].filter(Boolean).join('\n---\n')
 }
 
+function removeMemoEntry(memo, index) {
+  const entries = parseMemoEntries(memo)
+  entries.splice(index, 1)
+  return entries.map(e => e.date ? `[${e.date}] ${e.text}` : e.text).join('\n---\n')
+}
+
 // ─── RecurrenceSelector ───────────────────────────────────
 function RecurrenceSelector({ value, onChange }) {
   const presets = useMemo(() => getRecurrencePresets(new Date()), [])
@@ -1120,11 +1128,7 @@ function DashboardItemEditModal({ item, onSave, onClose }) {
                   <div key={i} className="text-xs bg-[#FAF7F2] rounded-xl px-3 py-2 flex gap-2 items-start group">
                     {entry.date && <span className="text-[#A0C8DC] font-medium flex-shrink-0">{entry.date}</span>}
                     <span className="text-gray-600 leading-relaxed flex-1 whitespace-pre-wrap">{entry.text}</span>
-                    <button type="button" onClick={() => {
-                      const entries = parseMemoEntries(memo)
-                      entries.splice(i, 1)
-                      setMemo(entries.map(e => e.date ? `[${e.date}] ${e.text}` : e.text).join('\n---\n'))
-                    }} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all flex-shrink-0 ml-1">
+                    <button type="button" onClick={() => setMemo(removeMemoEntry(memo, i))} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all flex-shrink-0 ml-1 leading-none">
                       <X size={12} />
                     </button>
                   </div>
@@ -1519,11 +1523,7 @@ function TaskEditModal({ task, onSave, onClose }) {
                   <div key={i} className="text-xs bg-[#FAF7F2] rounded-xl px-3 py-2 flex gap-2 items-start group">
                     {entry.date && <span className="text-[#A0C8DC] font-medium flex-shrink-0">{entry.date}</span>}
                     <span className="text-gray-600 leading-relaxed flex-1 whitespace-pre-wrap">{entry.text}</span>
-                    <button type="button" onClick={() => {
-                      const entries = parseMemoEntries(memo)
-                      entries.splice(i, 1)
-                      setMemo(entries.map(e => e.date ? `[${e.date}] ${e.text}` : e.text).join('\n---\n'))
-                    }} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all flex-shrink-0 ml-1">
+                    <button type="button" onClick={() => setMemo(removeMemoEntry(memo, i))} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all flex-shrink-0 ml-1 leading-none">
                       <X size={12} />
                     </button>
                   </div>
@@ -1947,12 +1947,11 @@ export default function App() {
     setToast(TOAST_MSGS.edit)
   }
 
-  const activeTasks    = tasks
   const doneTasks      = useMemo(() => tasks.filter(t => t.status === 'done'), [tasks])
   const filteredActive = useMemo(() => {
-    if (filter === 'all') return activeTasks.filter(t => t.status !== 'done')
-    return activeTasks.filter(t => t.status === filter)
-  }, [activeTasks, filter])
+    if (filter === 'all') return tasks.filter(t => t.status !== 'done')
+    return tasks.filter(t => t.status === filter)
+  }, [tasks, filter])
   const todayDone      = useMemo(() => {
     const now = new Date()
     const y = now.getFullYear(), mo = now.getMonth(), d = now.getDate()
@@ -1994,7 +1993,7 @@ export default function App() {
           <div className="flex items-center gap-2 text-xs">
             <div className="hidden sm:flex items-center gap-2">
               <div className="flex items-center gap-1.5 bg-[#A0C8DC]/15 px-3 py-1.5 rounded-full text-[#68B4C8] font-medium">
-                <Clock size={11} />進行中 {activeTasks.filter(t => t.status === 'doing').length}
+                <Clock size={11} />進行中 {tasks.filter(t => t.status === 'doing').length}
               </div>
               <div className="flex items-center gap-1.5 bg-[#EAF6EF] px-3 py-1.5 rounded-full text-[#4A9E68] font-medium">
                 <CheckCircle2 size={11} />今日 {todayDone}件完了
@@ -2161,7 +2160,7 @@ export default function App() {
                     <button onClick={() => setFilter('all')} className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${filter === 'all' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-100'}`}>すべて</button>
                     {STATUS_ORDER.map(s => {
                       const cfg = STATUS_CONFIG[s]
-                      const count = activeTasks.filter(t => t.status === s).length
+                      const count = tasks.filter(t => t.status === s).length
                       return (
                         <button key={s} onClick={() => setFilter(s)}
                           className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${filter === s ? `${cfg.color} border` : 'text-gray-400 hover:bg-gray-50'}`}>
