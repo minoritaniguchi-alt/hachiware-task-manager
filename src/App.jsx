@@ -2010,8 +2010,11 @@ export default function App() {
         if (isItemToday(item.recurrence, today)) result.push({ ...item, cat })
       })
     })
-    return result
-  }, [dashboard])
+    if (!q) return result
+    return result.filter(item =>
+      item.text.toLowerCase().includes(q) || (item.details || '').toLowerCase().includes(q)
+    )
+  }, [dashboard, q])
 
   if (!userEmail) return <LoginScreen onLogin={handleLogin} />
 
