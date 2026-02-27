@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/hachiware-task-manager/sw.js', { scope: '/hachiware-task-manager/' })})}
