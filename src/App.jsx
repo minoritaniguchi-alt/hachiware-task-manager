@@ -192,7 +192,7 @@ function safeParseJSON(str, fallback) {
 
 async function loadFromSheets(token, ssId) {
   const res = await sheetsApi('GET',
-    `${SHEETS_API_BASE}/${ssId}/values:batchGet?ranges=${encodeURIComponent('タスク!A2:J')}&ranges=${encodeURIComponent('ダッシュボード!A2:G')}&ranges=${encodeURIComponent('リンク!A2:F')}`,
+    `${SHEETS_API_BASE}/${ssId}/values:batchGet?ranges=${encodeURIComponent('タスク!A2:J')}&ranges=${encodeURIComponent('ダッシュボード!A2:I')}&ranges=${encodeURIComponent('リンク!A2:F')}`,
     token)
   const [taskVals, dashVals, procVals] = (res.valueRanges || []).map(r => r.values || [])
 
@@ -212,6 +212,7 @@ async function loadFromSheets(token, ssId) {
         id: String(r[0]), text: r[2] || '', details: r[3] || '', memo: r[4] || '',
         links: safeParseJSON(r[5], []),
         recurrence: safeParseJSON(r[6], { type: 'none' }),
+        time: r[7] || '', timeDate: r[8] || '',
       })
     }
   })
@@ -242,6 +243,7 @@ async function saveToSheets(token, ssId, { tasks, dashboard, procedures }) {
       item.id, catId, item.text, item.details || '', item.memo || '',
       item.links?.length ? JSON.stringify(item.links) : '',
       item.recurrence?.type !== 'none' ? JSON.stringify(item.recurrence) : '',
+      item.time || '', item.timeDate || '',
     ]))
   })
   const procRows = []
@@ -1809,12 +1811,12 @@ export class ErrorBoundary extends Component {
 
 // ─── メインアプリ ──────────────────────────────────────────
 export default function App() {
-  const [userEmail, setUserEmail]       = useState(() => sessionStorage.getItem('gis-user-email') ?? null)
+  const [userEmail, setUserEmail]       = useState(() => localStorage.getItem('gis-user-email') ?? null)
   const [accessToken, setAccessToken]   = useState(() => sessionStorage.getItem('gis-access-token') ?? null)
 
   // 初期化時に1回だけキーを計算し、3つの state 初期値で共有
   // ページリロード時（sessionStorageにemailがある場合）もマイグレーションを実行する
-  const _initialEmail = sessionStorage.getItem('gis-user-email')
+  const _initialEmail = localStorage.getItem('gis-user-email')
   migrateStorageKeys(_initialEmail)
   const _initKeys = getStorageKeys(_initialEmail)
   const [tasks, setTasks] = useState(() => {
@@ -1832,6 +1834,7 @@ export default function App() {
   const [showSearch, setShowSearch]       = useState(false)
 
   const [tasksOpen, setTasksOpen]         = useState(true)
+  const [archiveOpen, setArchiveOpen]     = useState(false)
   const [toast, setToast]                 = useState(null)
   const [filter, setFilter]               = useState('all')
   const [editingTask, setEditingTask]             = useState(null)
@@ -1862,7 +1865,7 @@ export default function App() {
       setHasLoaded(false)
       setUserEmail(email)
       sessionStorage.setItem('gis-id-token', credential)
-      sessionStorage.setItem('gis-user-email', email)
+      localStorage.setItem('gis-user-email', email)
     } catch { console.error('IDトークンのデコードに失敗') }
   }, [])
 
@@ -1872,7 +1875,7 @@ export default function App() {
     setAccessToken(null)
     setHasLoaded(false)
     sessionStorage.removeItem('gis-id-token')
-    sessionStorage.removeItem('gis-user-email')
+    localStorage.removeItem('gis-user-email')
     sessionStorage.removeItem('gis-access-token')
   }, [])
 
@@ -1965,11 +1968,12 @@ export default function App() {
                 ...sheetItems.map(sheetItem => {
                   const localItem = localItems.find(i => i.id === sheetItem.id)
                   if (!localItem) return sheetItem
+                  const merged = { ...sheetItem, time: localItem.time || sheetItem.time || '', timeDate: localItem.timeDate || sheetItem.timeDate || '' }
                   if (localItem.recurrence?.type !== 'none' &&
                       (!sheetItem.recurrence || sheetItem.recurrence.type === 'none')) {
-                    return { ...sheetItem, recurrence: localItem.recurrence }
+                    return { ...merged, recurrence: localItem.recurrence }
                   }
-                  return sheetItem
+                  return merged
                 }),
                 ...localOnly,
               ]
@@ -2059,10 +2063,12 @@ export default function App() {
   const deleteDashboardItem = (catId, itemId) =>
     setDashboard(prev => ({ ...prev, [catId]: (prev[catId] || []).filter(i => i.id !== itemId) }))
   const saveItemTime = (catId, itemId, time) => {
+    const today = new Date()
+    const timeDate = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
     setDashboard(prev => ({
       ...prev,
       [catId]: (prev[catId] || []).map(item =>
-        item.id !== itemId ? item : { ...item, time }
+        item.id !== itemId ? item : { ...item, time, timeDate }
       ),
     }))
   }
@@ -2167,12 +2173,17 @@ export default function App() {
     }).length
   }, [doneTasks])
 
+  const todayStr = useMemo(() => {
+    const today = new Date()
+    return `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
+  }, [])
+
   const todayDashItems = useMemo(() => {
     const today = new Date()
     const result = []
     DASHBOARD_CATEGORIES.forEach(cat => {
       ;(dashboard[cat.id] || []).forEach(item => {
-        if (isItemToday(item.recurrence, today)) result.push({ ...item, cat })
+        if (isItemToday(item.recurrence, today) && item.timeDate !== todayStr) result.push({ ...item, cat })
       })
     })
     if (!q) return result
@@ -2182,7 +2193,18 @@ export default function App() {
       (item.memo || '').toLowerCase().includes(q) ||
       (item.links || []).some(l => (l.title || l.url || '').toLowerCase().includes(q))
     )
-  }, [dashboard, q])
+  }, [dashboard, q, todayStr])
+
+  const todayDoneDashItems = useMemo(() => {
+    const today = new Date()
+    const result = []
+    DASHBOARD_CATEGORIES.forEach(cat => {
+      ;(dashboard[cat.id] || []).forEach(item => {
+        if (isItemToday(item.recurrence, today) && item.timeDate === todayStr) result.push({ ...item, cat })
+      })
+    })
+    return result
+  }, [dashboard, todayStr])
 
   if (!userEmail) return <LoginScreen onLogin={handleLogin} />
 
@@ -2354,9 +2376,8 @@ export default function App() {
                       )}
                       <button onClick={() => setTimeItem({ item, catId: cat.id })}
                         className="flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-white/90 transition-colors active:scale-[0.98]"
-                        style={{ color: item.time ? '#555' : '#bbb' }}>
+                        style={{ color: '#bbb' }}>
                         <Clock size={11} />
-                        {item.time && <span>{item.time}</span>}
                       </button>
                     </div>
                   </div>
@@ -2364,6 +2385,47 @@ export default function App() {
               </div>
             </div>
           )}
+          {/* 完了した今日の業務アーカイブ */}
+          {todayDoneDashItems.length > 0 && (
+            <div className="mb-5 animate-[fade-in_0.3s_ease-out]">
+              <button
+                onClick={() => setArchiveOpen(v => !v)}
+                className="flex items-center gap-2 mb-2 px-1 w-full text-left">
+                <span className="inline-flex items-center gap-1.5 bg-[#E8F5E9] text-[#4A9E68] text-xs font-bold px-3.5 py-1.5 rounded-full"
+                      style={{ boxShadow: '0 1px 4px rgba(74,158,104,0.15)' }}>
+                  ✅ 完了した業務
+                </span>
+                <span className="text-xs text-gray-400">{todayDoneDashItems.length}件</span>
+                <span className="ml-auto text-gray-400">
+                  {archiveOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                </span>
+              </button>
+              {archiveOpen && (
+                <div className="flex flex-col gap-2">
+                  {todayDoneDashItems.map(({ cat, ...item }) => {
+                    const cs = CHIIKAWA_CARD_STYLES[cat.id] || {}
+                    return (
+                      <div key={item.id}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-3xl opacity-60"
+                        style={{ background: cs.bg, boxShadow: 'none', border: cs.border }}>
+                        <span className="w-10 h-10 flex items-center justify-center rounded-full flex-shrink-0"
+                              style={{ background: cs.iconBg }}>
+                          <img src={catLogo} alt="" className="w-7 h-7 object-contain"
+                               style={{ filter: cs.imgFilter }} />
+                        </span>
+                        <span className="text-sm text-gray-500 flex-1 truncate leading-snug line-through">{item.text}</span>
+                        <div className="flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-white/90 text-[#4A9E68] flex-shrink-0">
+                          <Clock size={11} />
+                          <span>{item.time}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-4 animate-[fade-in_0.3s_ease-out]">
             {DASHBOARD_CATEGORIES.map(cat => {
               const catItems = searchedDashboard[cat.id] || []
